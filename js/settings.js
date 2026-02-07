@@ -41,6 +41,26 @@ export async function loadSettings() {
                                  class="mt-3 max-w-xs rounded ${settings.storeLogo ? '' : 'hidden'}">
                         </div>
 
+                        <div class="form-group">
+                            <label>وصف المتجر</label>
+                            <textarea id="storeDescription" rows="3">${settings.storeDescription || ''}</textarea>
+                            <small class="text-gray-500">يظهر في محركات البحث ووسائل التواصل الاجتماعي</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>كلمات مفتاحية</label>
+                            <input type="text" id="storeKeywords" value="${settings.storeKeywords || ''}" 
+                                   placeholder="خضراوات, فواكه, سوق, تسوق">
+                            <small class="text-gray-500">كلمات مفتاحية لمحركات البحث (مفصولة بفاصلة)</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>معرف Google Analytics</label>
+                            <input type="text" id="googleAnalyticsId" value="${settings.googleAnalyticsId || ''}" 
+                                   placeholder="G-D9262X6WVK">
+                            <small class="text-gray-500">معرف تتبع Google Analytics</small>
+                        </div>
+
                         <button type="submit" class="btn-primary w-full">
                             <i class="fas fa-save ml-2"></i>حفظ الإعدادات
                         </button>
@@ -68,6 +88,74 @@ export async function loadSettings() {
                             <label>مدة التوصيل المتوقعة (أيام)</label>
                             <input type="number" id="shippingDays" 
                                    value="${settings.shippingDays || 3}" min="1">
+                        </div>
+
+                        <div class="form-group">
+                            <label>الحد الأدنى للوزن (كجم)</label>
+                            <input type="number" id="weightMin" step="0.125" 
+                                   value="${settings.weightMin || 0.125}" min="0.125">
+                            <small class="text-gray-500">الحد الأدنى للوزن (1/8 كجم = 0.125)</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>الحد الأقصى للوزن (كجم)</label>
+                            <input type="number" id="weightMax" step="0.125" 
+                                   value="${settings.weightMax || 1}" min="0.125">
+                            <small class="text-gray-500">الحد الأقصى للوزن (1 كجم)</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>الزيادة التلقائية للوزن (كجم)</label>
+                            <input type="number" id="weightIncrement" step="0.125" 
+                                   value="${settings.weightIncrement || 0.125}" min="0.125">
+                            <small class="text-gray-500">مقدار الزيادة (1/8 كجم = 0.125)</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>خيارات الوزن المتاحة</label>
+                            <div class="weight-options">
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="weightOption125" value="0.125" 
+                                           ${settings.weightOptions && settings.weightOptions.includes('0.125') ? 'checked' : ''}>
+                                    <span class="mr-2">1/8 كجم (125 جرام)</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="weightOption250" value="0.25" 
+                                           ${settings.weightOptions && settings.weightOptions.includes('0.25') ? 'checked' : ''}>
+                                    <span class="mr-2">1/4 كجم (250 جرام)</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="weightOption375" value="0.375" 
+                                           ${settings.weightOptions && settings.weightOptions.includes('0.375') ? 'checked' : ''}>
+                                    <span class="mr-2">3/8 كجم (375 جرام)</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="weightOption500" value="0.5" 
+                                           ${settings.weightOptions && settings.weightOptions.includes('0.5') ? 'checked' : ''}>
+                                    <span class="mr-2">1/2 كجم (500 جرام)</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="weightOption625" value="0.625" 
+                                           ${settings.weightOptions && settings.weightOptions.includes('0.625') ? 'checked' : ''}>
+                                    <span class="mr-2">5/8 كجم (625 جرام)</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="weightOption750" value="0.75" 
+                                           ${settings.weightOptions && settings.weightOptions.includes('0.75') ? 'checked' : ''}>
+                                    <span class="mr-2">3/4 كجم (750 جرام)</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="weightOption875" value="0.875" 
+                                           ${settings.weightOptions && settings.weightOptions.includes('0.875') ? 'checked' : ''}>
+                                    <span class="mr-2">7/8 كجم (875 جرام)</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="weightOption1000" value="1" 
+                                           ${settings.weightOptions && settings.weightOptions.includes('1') ? 'checked' : ''}>
+                                    <span class="mr-2">1 كجم (1000 جرام)</span>
+                                </label>
+                            </div>
+                            <small class="text-gray-500">اختر خيارات الوزن التي تظهر للعملاء</small>
                         </div>
 
                         <button type="submit" class="btn-primary w-full">
@@ -183,6 +271,9 @@ window.saveGeneralSettings = async function(event) {
     const storeEmail = document.getElementById('storeEmail').value;
     const storePhone = document.getElementById('storePhone').value;
     const storeAddress = document.getElementById('storeAddress').value;
+    const storeDescription = document.getElementById('storeDescription').value;
+    const storeKeywords = document.getElementById('storeKeywords').value;
+    const googleAnalyticsId = document.getElementById('googleAnalyticsId').value;
     const logoFile = document.getElementById('storeLogo').files[0];
     
     try {
@@ -199,9 +290,12 @@ window.saveGeneralSettings = async function(event) {
         
         const settingsData = {
             storeName,
-            storeEmail: storeEmail || null,
-            storePhone: storePhone || null,
-            storeAddress: storeAddress || null,
+            storeEmail,
+            storePhone,
+            storeAddress,
+            storeDescription,
+            storeKeywords,
+            googleAnalyticsId,
             storeLogo,
             updatedAt: new Date()
         };
@@ -220,12 +314,26 @@ window.saveShippingSettings = async function(event) {
     const shippingBaseCost = parseFloat(document.getElementById('shippingBaseCost').value) || 0;
     const shippingFreeThreshold = parseFloat(document.getElementById('shippingFreeThreshold').value) || 0;
     const shippingDays = parseInt(document.getElementById('shippingDays').value) || 3;
+    const weightMin = parseFloat(document.getElementById('weightMin').value) || 0.125;
+    const weightMax = parseFloat(document.getElementById('weightMax').value) || 1;
+    const weightIncrement = parseFloat(document.getElementById('weightIncrement').value) || 0.125;
+    
+    // جمع خيارات الوزن المحددة
+    const weightOptions = [];
+    const weightCheckboxes = document.querySelectorAll('.weight-options input[type="checkbox"]:checked');
+    weightCheckboxes.forEach(checkbox => {
+        weightOptions.push(checkbox.value);
+    });
     
     try {
         const settingsData = {
             shippingBaseCost,
             shippingFreeThreshold,
             shippingDays,
+            weightMin,
+            weightMax,
+            weightIncrement,
+            weightOptions,
             updatedAt: new Date()
         };
         

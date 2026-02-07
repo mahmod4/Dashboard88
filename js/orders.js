@@ -100,7 +100,7 @@ async function getOrders(filterStatus = '') {
         return {
             id: doc.id,
             ...data,
-            date: data.createdAt?.toDate().toLocaleDateString('ar-SA') || 'غير محدد',
+            date: data.createdAt?.toDate().toLocaleDateString('ar-EG') || 'غير محدد',
             customerName: data.customerName || data.userName || 'غير محدد'
         };
     });
@@ -147,7 +147,7 @@ window.updateOrderStatus = async function(orderId, newStatus) {
             status: newStatus,
             updatedAt: new Date()
         });
-        alert('تم تحديث حالة الطلب بنجاح');
+        // Orders Management - إدارة الطلبات بنجاح
     } catch (error) {
         console.error('Error updating order status:', error);
         alert('حدث خطأ أثناء تحديث حالة الطلب');
@@ -296,4 +296,3 @@ window.printInvoice = async function(orderId) {
         alert('حدث خطأ أثناء طباعة الفاتورة');
     }
 }
-

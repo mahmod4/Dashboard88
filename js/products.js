@@ -1,6 +1,7 @@
 import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, query, orderBy } from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js';
 import { db, storage } from './firebase-config.js';
+import { uploadImageToCloudinary, deleteImageFromCloudinary, uploadImageWithUI } from './cloudinary-config.js';
 
 export async function loadProducts() {
     const pageContent = document.getElementById('pageContent');
@@ -16,8 +17,23 @@ export async function loadProducts() {
                         <button onclick="openImportModal()" class="btn-success">
                             <i class="fas fa-file-import ml-2"></i>استيراد منتجات
                         </button>
+                        <button onclick="openBulkEditModal()" class="btn-warning">
+                            <i class="fas fa-edit ml-2"></i>تعديل جماعي
+                        </button>
                         <button onclick="openProductModal()" class="btn-primary">
                             <i class="fas fa-plus ml-2"></i>إضافة منتج جديد
+                        </button>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <div class="flex space-x-4 space-x-reverse">
+                        <div class="flex-1">
+                            <input type="text" id="productSearch" placeholder="بحث بالاسم، القسم، أو الوصف..." 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   onkeyup="searchProducts()">
+                        </div>
+                        <button onclick="clearSearch()" class="btn-secondary">
+                            <i class="fas fa-times ml-2"></i>مسح البحث
                         </button>
                     </div>
                 </div>
@@ -28,11 +44,16 @@ export async function loadProducts() {
                     <table class="table">
                         <thead>
                             <tr>
+                                <th>
+                                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                                </th>
                                 <th>الصورة</th>
                                 <th>الاسم</th>
                                 <th>القسم</th>
                                 <th>السعر</th>
                                 <th>السعر بعد الخصم</th>
+                                <th>الوزن</th>
+                                <th>نوع البيع</th>
                                 <th>المخزون</th>
                                 <th>الحالة</th>
                                 <th>الإجراءات</th>
@@ -40,7 +61,10 @@ export async function loadProducts() {
                         </thead>
                         <tbody id="productsTable">
                             ${products.map(product => `
-                                <tr>
+                                <tr data-product-id="${product.id}">
+                                    <td>
+                                        <input type="checkbox" class="product-checkbox" value="${product.id}">
+                                    </td>
                                     <td>
                                         <img src="${product.image || 'https://via.placeholder.com/50'}" 
                                              alt="${product.name}" 
@@ -50,6 +74,8 @@ export async function loadProducts() {
                                     <td>${product.category || 'غير محدد'}</td>
                                     <td>${product.price?.toFixed(2) || 0} ج.م</td>
                                     <td>${product.discountPrice ? product.discountPrice.toFixed(2) + ' ج.م' : '-'}</td>
+                                    <td>${product.weight ? product.weight + ' كجم' : '-'}</td>
+                                    <td>${product.soldByWeight ? 'بالوزن' : 'بالعدد'}</td>
                                     <td>${product.stock || 0}</td>
                                     <td>
                                         <span class="badge badge-${product.available ? 'success' : 'danger'}">
@@ -189,6 +215,22 @@ export async function loadProducts() {
                             </div>
                         </div>
 
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="form-group">
+                                <label>الوزن (كجم) - اختياري</label>
+                                <input type="number" id="productWeight" step="0.01" min="0" placeholder="مثال: 0.5">
+                                <small class="text-gray-500">اتركه فارغاً إذا كان المنتج يُبعد بالعدد</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label>بيع بالوزن؟</label>
+                                <select id="productSoldByWeight">
+                                    <option value="false">بالعدد</option>
+                                    <option value="true">بالوزن (كجم)</option>
+                                </select>
+                            </div>
+                        </div>
+
                         <div class="form-group">
                             <label>الحالة</label>
                             <select id="productAvailable">
@@ -295,6 +337,8 @@ window.editProduct = async function(productId) {
             document.getElementById('productCategory').value = product.categoryId || '';
             document.getElementById('productStock').value = product.stock || 0;
             document.getElementById('productAvailable').value = product.available ? 'true' : 'false';
+            document.getElementById('productWeight').value = product.weight || '';
+            document.getElementById('productSoldByWeight').value = product.soldByWeight ? 'true' : 'false';
             
             if (product.image) {
                 const preview = document.getElementById('imagePreview');
@@ -317,15 +361,16 @@ window.deleteProduct = async function(productId) {
     if (!confirm('هل أنت متأكد من حذف هذا المنتج؟')) return;
     
     try {
-        // Delete image from storage if exists
+        // Delete image from Cloudinary if exists
         const productDoc = await getDoc(doc(db, 'products', productId));
         if (productDoc.exists()) {
             const product = productDoc.data();
             if (product.imagePath) {
                 try {
-                    await deleteObject(ref(storage, product.imagePath));
+                    await deleteImageFromCloudinary(product.imagePath);
+                    console.log('تم حذف الصورة من Cloudinary:', product.imagePath);
                 } catch (error) {
-                    console.error('Error deleting image:', error);
+                    console.error('Error deleting image from Cloudinary:', error);
                 }
             }
         }
@@ -590,6 +635,9 @@ window.saveProduct = async function(event) {
     const categoryId = document.getElementById('productCategory').value;
     const stock = parseInt(document.getElementById('productStock').value) || 0;
     const available = document.getElementById('productAvailable').value === 'true';
+    const weight = document.getElementById('productWeight').value ? 
+                   parseFloat(document.getElementById('productWeight').value) : null;
+    const soldByWeight = document.getElementById('productSoldByWeight').value === 'true';
     const imageFile = document.getElementById('productImage').files[0];
     
     try {
@@ -598,33 +646,45 @@ window.saveProduct = async function(event) {
         
         // Upload image if new file selected
         if (imageFile) {
-            // Validate file type
-            const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-            if (!validTypes.includes(imageFile.type)) {
-                throw new Error('نوع الملف غير مدعوم. يرجى اختيار صورة (JPG, PNG, GIF, WebP)');
-            }
-            
-            // Validate file size (max 5MB)
-            const maxSize = 5 * 1024 * 1024; // 5MB
-            if (imageFile.size > maxSize) {
-                throw new Error('حجم الصورة كبير جداً. الحد الأقصى 5MB');
-            }
-            
             try {
-                imagePath = `products/${Date.now()}_${imageFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-                const imageRef = ref(storage, imagePath);
-                
                 // Show upload progress
-                console.log('بدء رفع الصورة:', imageFile.name);
+                console.log('بدء رفع الصورة إلى Cloudinary:', imageFile.name);
                 
-                await uploadBytes(imageRef, imageFile);
-                console.log('تم رفع الصورة بنجاح');
+                // Upload to Cloudinary
+                const uploadResult = await uploadImageWithUI(
+                    document.getElementById('productImage'),
+                    productId || 'temp',
+                    (progress, status) => {
+                        // Update progress UI
+                        const progressDiv = document.getElementById('imageUploadProgress');
+                        const progressBar = document.getElementById('imageProgressBar');
+                        
+                        if (progressDiv) {
+                            progressDiv.classList.remove('hidden');
+                        }
+                        
+                        if (progressBar) {
+                            progressBar.style.width = `${progress}%`;
+                        }
+                        
+                        console.log(`Upload progress: ${progress}% - ${status}`);
+                    }
+                );
                 
-                imageUrl = await getDownloadURL(imageRef);
-                console.log('تم الحصول على رابط الصورة:', imageUrl);
+                imageUrl = uploadResult.url;
+                imagePath = uploadResult.publicId;
+                
+                console.log('تم رفع الصورة إلى Cloudinary بنجاح:', imageUrl);
+                
+                // Hide progress
+                const progressDiv = document.getElementById('imageUploadProgress');
+                if (progressDiv) {
+                    progressDiv.classList.add('hidden');
+                }
+                
             } catch (uploadError) {
-                console.error('خطأ في رفع الصورة:', uploadError);
-                throw new Error(`فشل رفع الصورة: ${uploadError.message || 'تحقق من قواعد Storage'}`);
+                console.error('خطأ في رفع الصورة إلى Cloudinary:', uploadError);
+                throw new Error(`فشل رفع الصورة: ${uploadError.message || 'تحقق من إعدادات Cloudinary'}`);
             }
         } else if (productId) {
             // Keep existing image if editing and no new image
@@ -643,6 +703,8 @@ window.saveProduct = async function(event) {
             categoryId,
             stock,
             available,
+            weight,
+            soldByWeight,
             image: imageUrl,
             imagePath: imagePath,
             updatedAt: new Date()
@@ -678,6 +740,180 @@ window.saveProduct = async function(event) {
         }
         
         alert(errorMessage);
+    }
+}
+
+// Search products
+window.searchProducts = function() {
+    const searchTerm = document.getElementById('productSearch').value.toLowerCase();
+    const rows = document.querySelectorAll('#productsTable tr');
+    
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        if (text.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+// Clear search
+window.clearSearch = function() {
+    document.getElementById('productSearch').value = '';
+    searchProducts();
+}
+
+// Toggle select all
+window.toggleSelectAll = function() {
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.product-checkbox');
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAll.checked;
+    });
+}
+
+// Open bulk edit modal
+window.openBulkEditModal = function() {
+    const selectedProducts = Array.from(document.querySelectorAll('.product-checkbox:checked'))
+        .map(cb => cb.value);
+    
+    if (selectedProducts.length === 0) {
+        alert('يرجى اختيار منتج واحد على الأقل للتعديل الجماعي');
+        return;
+    }
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <span class="close" onclick="closeBulkEditModal()">&times;</span>
+            <h2 class="text-2xl font-bold mb-6">تعديل جماعي (${selectedProducts.length} منتج)</h2>
+            <form id="bulkEditForm" onsubmit="saveBulkEdit(event)">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="form-group">
+                        <label>تغيير القسم</label>
+                        <select id="bulkCategory">
+                            <option value="">لا تغيير</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>تغيير الحالة</label>
+                        <select id="bulkAvailable">
+                            <option value="">لا تغيير</option>
+                            <option value="true">متوفر</option>
+                            <option value="false">غير متوفر</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="form-group">
+                        <label>زيادة السعر (%)</label>
+                        <input type="number" id="bulkPriceIncrease" step="0.1" min="0" placeholder="مثال: 10">
+                        <small class="text-gray-500">اتركه فارغاً لعدم التغيير</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>تغيير المخزون</label>
+                        <input type="number" id="bulkStock" min="0" placeholder="مثال: 50">
+                        <small class="text-gray-500">اتركه فارغاً لعدم التغيير</small>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="form-group">
+                        <label>تغيير الوزن (كجم)</label>
+                        <input type="number" id="bulkWeight" step="0.01" min="0" placeholder="مثال: 1">
+                        <small class="text-gray-500">اتركه فارغاً لعدم التغيير</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>بيع بالوزن؟</label>
+                        <select id="bulkSoldByWeight">
+                            <option value="">لا تغيير</option>
+                            <option value="true">بالوزن</option>
+                            <option value="false">بالعدد</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <input type="hidden" id="bulkProductIds" value="${selectedProducts.join(',')}">
+                
+                <div class="flex justify-end space-x-3 space-x-reverse mt-6">
+                    <button type="button" onclick="closeBulkEditModal()" 
+                            class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                        إلغاء
+                    </button>
+                    <button type="submit" class="btn-primary">
+                        <i class="fas fa-save ml-2"></i>حفظ التعديلات
+                    </button>
+                </div>
+            </form>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    modal.style.display = 'block';
+    
+    // Load categories for select
+    loadCategoriesForSelect();
+}
+
+// Close bulk edit modal
+window.closeBulkEditModal = function() {
+    const modal = document.querySelector('.modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// Save bulk edit
+window.saveBulkEdit = async function(event) {
+    event.preventDefault();
+    
+    const productIds = document.getElementById('bulkProductIds').value.split(',');
+    const category = document.getElementById('bulkCategory').value;
+    const available = document.getElementById('bulkAvailable').value;
+    const priceIncrease = document.getElementById('bulkPriceIncrease').value;
+    const stock = document.getElementById('bulkStock').value;
+    const weight = document.getElementById('bulkWeight').value;
+    const soldByWeight = document.getElementById('bulkSoldByWeight').value;
+    
+    try {
+        for (const productId of productIds) {
+            const productDoc = await getDoc(doc(db, 'products', productId));
+            if (productDoc.exists()) {
+                const product = productDoc.data();
+                const updates = {};
+                
+                if (category) updates.categoryId = category;
+                if (available !== '') updates.available = available === 'true';
+                if (priceIncrease) {
+                    const increase = parseFloat(priceIncrease) / 100;
+                    updates.price = product.price * (1 + increase);
+                    if (product.discountPrice) {
+                        updates.discountPrice = product.discountPrice * (1 + increase);
+                    }
+                }
+                if (stock !== '') updates.stock = parseInt(stock);
+                if (weight !== '') updates.weight = parseFloat(weight);
+                if (soldByWeight !== '') updates.soldByWeight = soldByWeight === 'true';
+                
+                updates.updatedAt = new Date();
+                
+                await updateDoc(doc(db, 'products', productId), updates);
+            }
+        }
+        
+        alert(`تم تحديث ${productIds.length} منتج بنجاح`);
+        closeBulkEditModal();
+        loadProducts();
+    } catch (error) {
+        console.error('Error in bulk edit:', error);
+        alert('حدث خطأ أثناء التحديث الجماعي');
     }
 }
 

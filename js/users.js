@@ -90,6 +90,12 @@ window.viewUserDetails = async function(userId) {
         if (userDoc.exists()) {
             const user = { id: userDoc.id, ...userDoc.data() };
             
+            // Calculate loyalty level
+            const loyaltyPoints = await getUserLoyaltyPoints(userId);
+            
+            // Calculate loyalty level
+            const loyaltyLevel = calculateLoyaltyLevel(loyaltyPoints.points);
+            
             // Get user orders
             const ordersSnapshot = await getDocs(query(
                 collection(db, 'orders'),
@@ -116,7 +122,23 @@ window.viewUserDetails = async function(userId) {
                         </div>
                         <div>
                             <p class="text-gray-600">تاريخ التسجيل:</p>
-                            <p class="font-bold">${user.createdAt?.toDate().toLocaleDateString('ar-SA') || 'غير محدد'}</p>
+                            <p class="font-bold">${user.createdAt?.toDate().toLocaleDateString('ar-EG') || 'غير محدد'}</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-600">نقاط الولاء:</p>
+                            <p class="font-bold">${loyaltyPoints.points || 0}</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-600">مستوى الولاء:</p>
+                            <p class="font-bold">${loyaltyLevel.name}</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-600">قيمة النقاط:</p>
+                            <p class="font-bold">${loyaltyPoints.value || 0} ج.م</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-600">النقاط التالية للمستوى ${loyaltyLevel.nextLevel}:</p>
+                            <p class="font-bold">${loyaltyLevel.nextLevel - loyaltyPoints.points}</p>
                         </div>
                     </div>
                     
@@ -127,7 +149,7 @@ window.viewUserDetails = async function(userId) {
                                 <div class="flex justify-between p-2 bg-gray-50 rounded">
                                     <div>
                                         <p class="font-semibold">طلب #${order.id.substring(0, 8)}</p>
-                                        <p class="text-sm text-gray-500">${order.createdAt?.toDate().toLocaleDateString('ar-SA') || ''}</p>
+                                        <p class="text-sm text-gray-500">${order.createdAt?.toDate().toLocaleDateString('ar-EG') || ''}</p>
                                     </div>
                                     <div class="text-left">
                                         <p class="font-bold">${order.total?.toFixed(2) || 0} ج.م</p>
@@ -144,6 +166,9 @@ window.viewUserDetails = async function(userId) {
                             <i class="fas fa-${user.active ? 'ban' : 'check'} ml-2"></i>
                             ${user.active ? 'حظر المستخدم' : 'تفعيل المستخدم'}
                         </button>
+                        <button onclick="openAddPointsModal('${user.id}')" class="btn-primary">
+                            <i class="fas fa-plus ml-2"></i>إضافة نقاط
+                        </button>
                     </div>
                 </div>
             `;
@@ -158,6 +183,115 @@ window.viewUserDetails = async function(userId) {
 
 window.closeUserDetailsModal = function() {
     document.getElementById('userDetailsModal').style.display = 'none';
+}
+
+// Get user loyalty points
+async function getUserLoyaltyPoints(userId) {
+    try {
+        const pointsSnapshot = await getDocs(query(
+            collection(db, 'loyaltyPoints'),
+            where('userId', '==', userId),
+            orderBy('createdAt', 'desc')
+        ));
+        
+        const points = pointsSnapshot.docs.map(doc => doc.data());
+        const totalPoints = points.reduce((sum, point) => sum + (point.points || 0), 0);
+        const totalValue = points.reduce((sum, point) => sum + ((point.points || 0) * (point.value || 0)), 0);
+        
+        return {
+            points: totalPoints,
+            value: totalValue
+        };
+    } catch (error) {
+        console.error('Error getting user loyalty points:', error);
+        return { points: 0, value: 0 };
+    }
+}
+
+// Open add points modal
+window.openAddPointsModal = function(userId) {
+    // Create modal HTML
+    const modalHtml = `
+        <div id="addPointsModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeAddPointsModal()">&times;</span>
+                <h2 class="text-2xl font-bold mb-6">إضافة نقاط للمستخدم</h2>
+                <form id="addPointsForm" onsubmit="addLoyaltyPoints(event, '${userId}')">
+                    <div class="form-group">
+                        <label>عدد النقاط</label>
+                        <input type="number" id="pointsAmount" step="1" min="1" required>
+                        <small class="text-gray-500">أدخل عدد النقاط التي تريد إضافتها</small>
+                    </div>
+                    <div class="form-group">
+                        <label>السبب</label>
+                        <textarea id="pointsReason" rows="3" required placeholder="سبب إضافة النقاط"></textarea>
+                    </div>
+                    <button type="submit" class="btn-primary w-full">
+                        <i class="fas fa-plus ml-2"></i>إضافة النقاط
+                    </button>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to page
+    const modalContainer = document.createElement('div');
+    modalContainer.innerHTML = modalHtml;
+    document.body.appendChild(modalContainer);
+    
+    // Show modal
+    document.getElementById('addPointsModal').style.display = 'block';
+}
+
+// Close add points modal
+window.closeAddPointsModal = function() {
+    const modal = document.getElementById('addPointsModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// Add loyalty points
+window.addLoyaltyPoints = async function(event, userId) {
+    event.preventDefault();
+    
+    const pointsAmount = parseInt(document.getElementById('pointsAmount').value);
+    const reason = document.getElementById('pointsReason').value;
+    
+    if (!pointsAmount || pointsAmount <= 0) {
+        alert('يرجى إدخال عدد نقاط صحيح');
+        return;
+    }
+    
+    if (!reason.trim()) {
+        alert('يرجى إدخال سبب إضافة النقاط');
+        return;
+    }
+    
+    try {
+        // Get current user points
+        const currentPoints = await getUserLoyaltyPoints(userId);
+        const newTotalPoints = currentPoints.points + pointsAmount;
+        
+        // Add points transaction
+        await addDoc(collection(db, 'loyaltyPoints'), {
+            userId: userId,
+            points: pointsAmount,
+            reason: reason,
+            type: 'add',
+            createdAt: new Date(),
+            totalPoints: newTotalPoints
+        });
+        
+        alert(`تم إضافة ${pointsAmount} نقاط للمستخدم بنجاح`);
+        closeAddPointsModal();
+        
+        // Refresh user details
+        viewUserDetails(userId);
+    } catch (error) {
+        console.error('Error adding loyalty points:', error);
+        alert('حدث خطأ أثناء إضافة النقاط');
+    }
 }
 
 window.toggleUserStatus = async function(userId, newStatus) {
@@ -195,5 +329,46 @@ function getOrderStatusText(status) {
         'cancelled': 'ملغي'
     };
     return texts[status] || status;
+}
+
+// Calculate loyalty level
+function calculateLoyaltyLevel(points) {
+    if (points >= 1000) {
+        return {
+            name: 'ذهبي',
+            level: 5,
+            nextLevel: 1500
+        };
+    } else if (points >= 500) {
+        return {
+            name: 'فضي',
+            level: 4,
+            nextLevel: 1000
+        };
+    } else if (points >= 250) {
+        return {
+            name: 'أزرق',
+            level: 3,
+            nextLevel: 500
+        };
+    } else if (points >= 100) {
+        return {
+            name: 'برونزي',
+            level: 2,
+            nextLevel: 250
+        };
+    } else if (points >= 50) {
+        return {
+            name: 'أخضر',
+            level: 1,
+            nextLevel: 100
+        };
+    } else {
+        return {
+            name: 'مبتدئ',
+            level: 0,
+            nextLevel: 50
+        };
+    }
 }
 
