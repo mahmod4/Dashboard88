@@ -1,0 +1,299 @@
+import { collection, updateDoc, doc, getDocs, getDoc, query, orderBy, where } from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js';
+import { db } from './firebase-config.js';
+
+export async function loadOrders() {
+    const pageContent = document.getElementById('pageContent');
+    
+    try {
+        const orders = await getOrders();
+        
+        pageContent.innerHTML = `
+            <div class="card mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold">الطلبات</h2>
+                    <div class="flex space-x-2 space-x-reverse">
+                        <select id="statusFilter" onchange="filterOrders()" 
+                                class="px-4 py-2 border border-gray-300 rounded-lg">
+                            <option value="">جميع الحالات</option>
+                            <option value="new">جديد</option>
+                            <option value="preparing">جاري التحضير</option>
+                            <option value="shipped">تم الشحن</option>
+                            <option value="completed">مكتمل</option>
+                            <option value="cancelled">ملغي</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="overflow-x-auto">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>رقم الطلب</th>
+                                <th>العميل</th>
+                                <th>التاريخ</th>
+                                <th>المبلغ</th>
+                                <th>الحالة</th>
+                                <th>الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTable">
+                            ${orders.map(order => `
+                                <tr>
+                                    <td>#${order.id.substring(0, 8)}</td>
+                                    <td>${order.customerName || 'غير محدد'}</td>
+                                    <td>${order.date}</td>
+                                    <td>${order.total?.toFixed(2) || 0} ج.م</td>
+                                    <td>
+                                        <select onchange="updateOrderStatus('${order.id}', this.value)" 
+                                                class="px-3 py-1 border rounded-lg">
+                                            <option value="new" ${order.status === 'new' ? 'selected' : ''}>جديد</option>
+                                            <option value="preparing" ${order.status === 'preparing' ? 'selected' : ''}>جاري التحضير</option>
+                                            <option value="shipped" ${order.status === 'shipped' ? 'selected' : ''}>تم الشحن</option>
+                                            <option value="completed" ${order.status === 'completed' ? 'selected' : ''}>مكتمل</option>
+                                            <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>ملغي</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <button onclick="viewOrderDetails('${order.id}')" 
+                                                class="btn-primary text-sm py-1 px-3 ml-2">
+                                            <i class="fas fa-eye"></i> تفاصيل
+                                        </button>
+                                        <button onclick="printInvoice('${order.id}')" 
+                                                class="btn-success text-sm py-1 px-3">
+                                            <i class="fas fa-print"></i> طباعة
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Order Details Modal -->
+            <div id="orderDetailsModal" class="modal">
+                <div class="modal-content">
+                    <span class="close" onclick="closeOrderDetailsModal()">&times;</span>
+                    <h2 class="text-2xl font-bold mb-6">تفاصيل الطلب</h2>
+                    <div id="orderDetailsContent"></div>
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        console.error('Error loading orders:', error);
+        pageContent.innerHTML = '<div class="card"><p class="text-red-600">حدث خطأ أثناء تحميل الطلبات</p></div>';
+    }
+}
+
+async function getOrders(filterStatus = '') {
+    let q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
+    
+    if (filterStatus) {
+        q = query(collection(db, 'orders'), where('status', '==', filterStatus), orderBy('createdAt', 'desc'));
+    }
+    
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            ...data,
+            date: data.createdAt?.toDate().toLocaleDateString('ar-SA') || 'غير محدد',
+            customerName: data.customerName || data.userName || 'غير محدد'
+        };
+    });
+}
+
+window.filterOrders = async function() {
+    const status = document.getElementById('statusFilter').value;
+    const orders = await getOrders(status);
+    
+    const tbody = document.getElementById('ordersTable');
+    tbody.innerHTML = orders.map(order => `
+        <tr>
+            <td>#${order.id.substring(0, 8)}</td>
+            <td>${order.customerName || 'غير محدد'}</td>
+            <td>${order.date}</td>
+            <td>${order.total?.toFixed(2) || 0} ج.م</td>
+            <td>
+                <select onchange="updateOrderStatus('${order.id}', this.value)" 
+                        class="px-3 py-1 border rounded-lg">
+                    <option value="new" ${order.status === 'new' ? 'selected' : ''}>جديد</option>
+                    <option value="preparing" ${order.status === 'preparing' ? 'selected' : ''}>جاري التحضير</option>
+                    <option value="shipped" ${order.status === 'shipped' ? 'selected' : ''}>تم الشحن</option>
+                    <option value="completed" ${order.status === 'completed' ? 'selected' : ''}>مكتمل</option>
+                    <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>ملغي</option>
+                </select>
+            </td>
+            <td>
+                <button onclick="viewOrderDetails('${order.id}')" 
+                        class="btn-primary text-sm py-1 px-3 ml-2">
+                    <i class="fas fa-eye"></i> تفاصيل
+                </button>
+                <button onclick="printInvoice('${order.id}')" 
+                        class="btn-success text-sm py-1 px-3">
+                    <i class="fas fa-print"></i> طباعة
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+window.updateOrderStatus = async function(orderId, newStatus) {
+    try {
+        await updateDoc(doc(db, 'orders', orderId), {
+            status: newStatus,
+            updatedAt: new Date()
+        });
+        alert('تم تحديث حالة الطلب بنجاح');
+    } catch (error) {
+        console.error('Error updating order status:', error);
+        alert('حدث خطأ أثناء تحديث حالة الطلب');
+    }
+}
+
+window.viewOrderDetails = async function(orderId) {
+    try {
+        const orderDoc = await getDoc(doc(db, 'orders', orderId));
+        if (orderDoc.exists()) {
+            const order = { id: orderDoc.id, ...orderDoc.data() };
+            
+            const statusText = {
+                'new': 'جديد',
+                'preparing': 'جاري التحضير',
+                'shipped': 'تم الشحن',
+                'completed': 'مكتمل',
+                'cancelled': 'ملغي'
+            };
+            
+            document.getElementById('orderDetailsContent').innerHTML = `
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-gray-600">رقم الطلب:</p>
+                            <p class="font-bold">#${order.id.substring(0, 8)}</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-600">التاريخ:</p>
+                            <p class="font-bold">${order.createdAt?.toDate().toLocaleDateString('ar-SA') || 'غير محدد'}</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-600">العميل:</p>
+                            <p class="font-bold">${order.customerName || order.userName || 'غير محدد'}</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-600">الحالة:</p>
+                            <p class="font-bold">${statusText[order.status] || order.status}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="border-t pt-4">
+                        <h3 class="font-bold mb-3">المنتجات:</h3>
+                        <div class="space-y-2">
+                            ${(order.items || []).map(item => `
+                                <div class="flex justify-between p-2 bg-gray-50 rounded">
+                                    <span>${item.name} x ${item.quantity}</span>
+                                    <span>${(item.price * item.quantity).toFixed(2)} ج.م</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    
+                    <div class="border-t pt-4">
+                        <div class="flex justify-between text-lg font-bold">
+                            <span>المجموع:</span>
+                            <span>${order.total?.toFixed(2) || 0} ج.م</span>
+                        </div>
+                    </div>
+                    
+                    ${order.shippingAddress ? `
+                        <div class="border-t pt-4">
+                            <h3 class="font-bold mb-2">عنوان الشحن:</h3>
+                            <p>${order.shippingAddress}</p>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            document.getElementById('orderDetailsModal').style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Error loading order details:', error);
+        alert('حدث خطأ أثناء تحميل تفاصيل الطلب');
+    }
+}
+
+window.closeOrderDetailsModal = function() {
+    document.getElementById('orderDetailsModal').style.display = 'none';
+}
+
+window.printInvoice = async function(orderId) {
+    try {
+        const orderDoc = await getDoc(doc(db, 'orders', orderId));
+        if (orderDoc.exists()) {
+            const order = { id: orderDoc.id, ...orderDoc.data() };
+            
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html dir="rtl" lang="ar">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>فاتورة #${order.id.substring(0, 8)}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 20px; direction: rtl; }
+                        .header { text-align: center; margin-bottom: 30px; }
+                        .info { margin-bottom: 20px; }
+                        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                        th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+                        th { background-color: #f2f2f2; }
+                        .total { text-align: left; font-size: 18px; font-weight: bold; margin-top: 20px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>فاتورة</h1>
+                        <p>رقم الطلب: #${order.id.substring(0, 8)}</p>
+                        <p>التاريخ: ${order.createdAt?.toDate().toLocaleDateString('ar-SA') || 'غير محدد'}</p>
+                    </div>
+                    <div class="info">
+                        <p><strong>العميل:</strong> ${order.customerName || order.userName || 'غير محدد'}</p>
+                        ${order.shippingAddress ? `<p><strong>عنوان الشحن:</strong> ${order.shippingAddress}</p>` : ''}
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>المنتج</th>
+                                <th>الكمية</th>
+                                <th>السعر</th>
+                                <th>المجموع</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${(order.items || []).map(item => `
+                                <tr>
+                                    <td>${item.name}</td>
+                                    <td>${item.quantity}</td>
+                                    <td>${item.price.toFixed(2)} ج.م</td>
+                                    <td>${(item.price * item.quantity).toFixed(2)} ج.م</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    <div class="total">
+                        <p>المجموع الكلي: ${order.total?.toFixed(2) || 0} ج.م</p>
+                    </div>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.print();
+        }
+    } catch (error) {
+        console.error('Error printing invoice:', error);
+        alert('حدث خطأ أثناء طباعة الفاتورة');
+    }
+}
+
