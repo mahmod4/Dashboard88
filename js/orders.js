@@ -38,6 +38,7 @@ export async function loadOrders() {
                             <tr>
                                 <th>رقم الطلب</th>
                                 <th>العميل</th>
+                                <th>رقم الهاتف</th>
                                 <th>التاريخ</th>
                                 <th>المبلغ</th>
                                 <th>الحالة</th>
@@ -49,6 +50,7 @@ export async function loadOrders() {
                                 <tr>
                                     <td>#${order.id.substring(0, 8)}</td>
                                     <td>${order.customerName || 'غير محدد'}</td>
+                                    <td>${order.customerPhone || '-'}</td>
                                     <td>${order.date}</td>
                                     <td>${order.total?.toFixed(2) || 0} ج.م</td>
                                     <td>
@@ -116,11 +118,14 @@ async function getOrders(filterStatus = '') {
             else if (createdAt) dateStr = new Date(createdAt).toLocaleDateString('ar-EG');
         } catch (e) {}
 
+        const customerPhone = (data.customer && data.customer.phone) || data.customerPhone || data.phone || (data.shipping && data.shipping.phone) || null;
+
         return {
             id: doc.id,
             ...data,
             date: dateStr,
-            customerName: data.customerName || (data.customer && ((data.customer.firstName || '') + ' ' + (data.customer.lastName || '')).trim()) || data.userName || 'غير محدد'
+            customerName: data.customerName || (data.customer && ((data.customer.firstName || '') + ' ' + (data.customer.lastName || '')).trim()) || data.userName || 'غير محدد',
+            customerPhone: customerPhone
         };
     });
 }
@@ -134,6 +139,7 @@ window.filterOrders = async function() {
         <tr>
             <td>#${order.id.substring(0, 8)}</td>
             <td>${order.customerName || 'غير محدد'}</td>
+            <td>${order.customerPhone || '-'}</td>
             <td>${order.date}</td>
             <td>${order.total?.toFixed(2) || 0} ج.م</td>
             <td>
@@ -203,6 +209,10 @@ window.viewOrderDetails = async function(orderId) {
                             <p class="font-bold">${order.customerName || order.userName || 'غير محدد'}</p>
                         </div>
                         <div>
+                            <p class="text-gray-600">رقم الهاتف:</p>
+                            <p class="font-bold">${(order.customer && order.customer.phone) || order.customerPhone || order.phone || 'غير محدد'}</p>
+                        </div>
+                        <div>
                             <p class="text-gray-600">الحالة:</p>
                             <p class="font-bold">${statusText[order.status] || order.status}</p>
                         </div>
@@ -253,6 +263,7 @@ window.printInvoice = async function(orderId) {
         const orderDoc = await getDoc(doc(db, 'orders', orderId));
         if (orderDoc.exists()) {
             const order = { id: orderDoc.id, ...orderDoc.data() };
+            const phone = (order.customer && order.customer.phone) || order.customerPhone || order.phone || '';
             
             const printWindow = window.open('', '_blank');
             printWindow.document.write(`
@@ -279,6 +290,7 @@ window.printInvoice = async function(orderId) {
                     </div>
                     <div class="info">
                         <p><strong>العميل:</strong> ${order.customerName || order.userName || 'غير محدد'}</p>
+                        <p><strong>رقم الهاتف:</strong> ${phone || 'غير محدد'}</p>
                         ${order.shippingAddress ? `<p><strong>عنوان الشحن:</strong> ${order.shippingAddress}</p>` : ''}
                     </div>
                     <table>
