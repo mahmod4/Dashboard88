@@ -173,3 +173,9 @@ export function navigateToPage(page) {
     }
 }
 
+// Expose helpers for non-module scripts (e.g. Reset button in index.html)
+try {
+    window.navigateToPage = navigateToPage;
+    window.getDashboardCurrentPage = () => currentPage;
+} catch (e) {}
+

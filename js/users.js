@@ -13,6 +13,12 @@ export async function loadUsers() {
             </div>
 
             <div class="card">
+                ${users.length === 0 ? `
+                    <div class="mb-4" style="border:1px solid #fed7d7;background:#fff5f5;padding:12px;border-radius:8px;">
+                        <p class="font-semibold" style="color:#742a2a;">لا توجد بيانات مستخدمين.</p>
+                        <p class="text-sm" style="color:#742a2a;">لو المتجر شغال ويوجد طلبات/مستخدمين، فالغالب أن المتجر لا يكتب على نفس Firebase Project أو لا يكتب داخل Collections (users / orders) في Firestore.</p>
+                    </div>
+                ` : ''}
                 <div class="overflow-x-auto">
                     <table class="table">
                         <thead>

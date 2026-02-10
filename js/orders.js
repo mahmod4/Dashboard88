@@ -26,6 +26,12 @@ export async function loadOrders() {
             </div>
 
             <div class="card">
+                ${orders.length === 0 ? `
+                    <div class="mb-4" style="border:1px solid #fed7d7;background:#fff5f5;padding:12px;border-radius:8px;">
+                        <p class="font-semibold" style="color:#742a2a;">لا توجد طلبات محفوظة.</p>
+                        <p class="text-sm" style="color:#742a2a;">لو يوجد طلبات في المتجر، فالغالب أن المتجر لا يحفظ داخل Collection (orders) في نفس Firebase Project أو هناك قواعد Firestore تمنع القراءة.</p>
+                    </div>
+                ` : ''}
                 <div class="overflow-x-auto">
                     <table class="table">
                         <thead>
