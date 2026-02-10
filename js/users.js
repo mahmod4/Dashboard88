@@ -96,6 +96,32 @@ async function getUsers() {
     } catch (e) {
         console.warn('Orders read failed while calculating orders count:', e);
     }
+
+    // If the store doesn't create /users docs, build a list from existing orders
+    if (users.length === 0 && orders.length > 0) {
+        const byUserId = new Map();
+        for (const o of orders) {
+            const uid = o && o.userId ? String(o.userId) : null;
+            if (!uid) continue;
+            if (!byUserId.has(uid)) {
+                const c = o.customer || {};
+                const name = (c.firstName || c.lastName) ? `${c.firstName || ''} ${c.lastName || ''}`.trim() : (o.customerName || o.userName || null);
+                byUserId.set(uid, {
+                    id: uid,
+                    name: name,
+                    email: null,
+                    phone: c.phone || null,
+                    active: true,
+                    createdAt: o.createdAt || o.orderDate || null
+                });
+            }
+        }
+        const derivedUsers = Array.from(byUserId.values());
+        return derivedUsers.map(user => ({
+            ...user,
+            ordersCount: orders.filter(o => String(o.userId) === String(user.id)).length
+        }));
+    }
     
     return users.map(user => ({
         ...user,
