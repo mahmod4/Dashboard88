@@ -1,4 +1,4 @@
-import { collection, updateDoc, doc, getDocs, getDoc, query, orderBy } from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js';
+import { collection, updateDoc, doc, getDocs, getDoc, query, orderBy, where } from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js';
 import { db } from './firebase-config.js';
 
 export async function loadUsers() {
@@ -66,17 +66,30 @@ export async function loadUsers() {
         `;
     } catch (error) {
         console.error('Error loading users:', error);
-        pageContent.innerHTML = '<div class="card"><p class="text-red-600">حدث خطأ أثناء تحميل المستخدمين</p></div>';
+        const msg = (error && (error.message || error.code)) ? `${error.code ? error.code + ': ' : ''}${error.message || ''}` : 'خطأ غير معروف';
+        pageContent.innerHTML = `<div class="card"><p class="text-red-600">حدث خطأ أثناء تحميل المستخدمين</p><pre style="white-space:pre-wrap;direction:ltr;text-align:left;" class="mt-2 text-xs">${msg}</pre></div>`;
     }
 }
 
 async function getUsers() {
-    const snapshot = await getDocs(query(collection(db, 'users'), orderBy('createdAt', 'desc')));
-    const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    let usersSnapshot;
+    try {
+        usersSnapshot = await getDocs(query(collection(db, 'users'), orderBy('createdAt', 'desc')));
+    } catch (e) {
+        console.warn('Users query with orderBy(createdAt) failed, falling back to unordered query:', e);
+        usersSnapshot = await getDocs(collection(db, 'users'));
+    }
+
+    const users = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
     // Get orders count for each user
-    const ordersSnapshot = await getDocs(collection(db, 'orders'));
-    const orders = ordersSnapshot.docs.map(doc => doc.data());
+    let orders = [];
+    try {
+        const ordersSnapshot = await getDocs(collection(db, 'orders'));
+        orders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (e) {
+        console.warn('Orders read failed while calculating orders count:', e);
+    }
     
     return users.map(user => ({
         ...user,

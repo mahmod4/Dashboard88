@@ -80,7 +80,8 @@ export async function loadDashboard() {
         `;
     } catch (error) {
         console.error('Error loading dashboard:', error);
-        pageContent.innerHTML = '<div class="card"><p class="text-red-600">حدث خطأ أثناء تحميل البيانات</p></div>';
+        const msg = (error && (error.message || error.code)) ? `${error.code ? error.code + ': ' : ''}${error.message || ''}` : 'خطأ غير معروف';
+        pageContent.innerHTML = `<div class="card"><p class="text-red-600">حدث خطأ أثناء تحميل البيانات</p><pre style="white-space:pre-wrap;direction:ltr;text-align:left;" class="mt-2 text-xs">${msg}</pre></div>`;
     }
 }
 

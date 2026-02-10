@@ -83,25 +83,38 @@ export async function loadOrders() {
         `;
     } catch (error) {
         console.error('Error loading orders:', error);
-        pageContent.innerHTML = '<div class="card"><p class="text-red-600">حدث خطأ أثناء تحميل الطلبات</p></div>';
+        const msg = (error && (error.message || error.code)) ? `${error.code ? error.code + ': ' : ''}${error.message || ''}` : 'خطأ غير معروف';
+        pageContent.innerHTML = `<div class="card"><p class="text-red-600">حدث خطأ أثناء تحميل الطلبات</p><pre style="white-space:pre-wrap;direction:ltr;text-align:left;" class="mt-2 text-xs">${msg}</pre></div>`;
     }
 }
 
 async function getOrders(filterStatus = '') {
-    let q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
-    
-    if (filterStatus) {
-        q = query(collection(db, 'orders'), where('status', '==', filterStatus), orderBy('createdAt', 'desc'));
+    let snapshot;
+    try {
+        let q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
+        if (filterStatus) {
+            q = query(collection(db, 'orders'), where('status', '==', filterStatus), orderBy('createdAt', 'desc'));
+        }
+        snapshot = await getDocs(q);
+    } catch (e) {
+        console.warn('Orders query with orderBy(createdAt) failed, falling back to unordered query:', e);
+        snapshot = await getDocs(collection(db, 'orders'));
     }
-    
-    const snapshot = await getDocs(q);
+
     return snapshot.docs.map(doc => {
         const data = doc.data();
+        const createdAt = data.createdAt || data.orderDate;
+        let dateStr = 'غير محدد';
+        try {
+            if (createdAt && createdAt.toDate) dateStr = createdAt.toDate().toLocaleDateString('ar-EG');
+            else if (createdAt) dateStr = new Date(createdAt).toLocaleDateString('ar-EG');
+        } catch (e) {}
+
         return {
             id: doc.id,
             ...data,
-            date: data.createdAt?.toDate().toLocaleDateString('ar-EG') || 'غير محدد',
-            customerName: data.customerName || data.userName || 'غير محدد'
+            date: dateStr,
+            customerName: data.customerName || (data.customer && ((data.customer.firstName || '') + ' ' + (data.customer.lastName || '')).trim()) || data.userName || 'غير محدد'
         };
     });
 }
