@@ -248,12 +248,29 @@
                 if (currentPage && typeof window.navigateToPage === 'function') {
                     window.navigateToPage(currentPage);
                 } else {
-                    window.location.reload();
+                    const activeNav = document.querySelector('.nav-item.active');
+                    if (activeNav) {
+                        activeNav.click();
+                    } else {
+                        window.location.reload();
+                    }
                 }
             } finally {
                 closeResetModal();
             }
         }
+
+        // Fallback: if modal is not visible for any reason, allow quick reset via native confirm
+        try {
+            const resetBtn = document.getElementById('resetBtn');
+            if (resetBtn) {
+                resetBtn.addEventListener('contextmenu', function(e) {
+                    e.preventDefault();
+                    const ok = window.confirm('Reset للصفحة الحالية؟');
+                    if (ok) confirmReset();
+                });
+            }
+        } catch (e) {}
     </script>
 </body>
 </html>
