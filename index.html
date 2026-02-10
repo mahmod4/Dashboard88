@@ -237,13 +237,22 @@
         }
 
         function confirmReset() {
+            const currentPage = (window.getDashboardCurrentPage && window.getDashboardCurrentPage()) || null;
+
             try {
-                localStorage.clear();
+                const statusFilter = document.getElementById('statusFilter');
+                if (statusFilter) statusFilter.value = '';
             } catch (e) {}
+
             try {
-                sessionStorage.clear();
-            } catch (e) {}
-            window.location.reload();
+                if (currentPage && typeof window.navigateToPage === 'function') {
+                    window.navigateToPage(currentPage);
+                } else {
+                    window.location.reload();
+                }
+            } finally {
+                closeResetModal();
+            }
         }
     </script>
 </body>
