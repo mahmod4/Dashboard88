@@ -30,7 +30,7 @@ export async function loadProducts() {
                         <div class="flex-1">
                             <input type="text" id="productSearch" placeholder="بحث بالاسم، القسم، أو الوصف..." 
                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                   onkeyup="searchProducts()">
+                                   >
                         </div>
                         <button onclick="clearSearch()" class="btn-secondary">
                             <i class="fas fa-times ml-2"></i>مسح البحث
@@ -268,10 +268,50 @@ export async function loadProducts() {
 
         // Load categories
         await loadCategoriesForSelect();
+
+        // Improve search performance (debounced)
+        try {
+            const input = document.getElementById('productSearch');
+            if (input) {
+                if (window.__productSearchHandler) {
+                    input.removeEventListener('input', window.__productSearchHandler);
+                }
+                window.__productSearchHandler = debounce(() => {
+                    if (typeof window.searchProducts === 'function') {
+                        window.searchProducts();
+                    }
+                }, 120);
+                input.addEventListener('input', window.__productSearchHandler);
+            }
+        } catch (e) {
+            // noop
+        }
     } catch (error) {
         console.error('Error loading products:', error);
         pageContent.innerHTML = '<div class="card"><p class="text-red-600">حدث خطأ أثناء تحميل المنتجات</p></div>';
     }
+}
+
+function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
+
+function normalizeArabic(text) {
+    return String(text || '')
+        .normalize('NFKD')
+        .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
+        .replace(/[إأآا]/g, 'ا')
+        .replace(/ى/g, 'ي')
+        .replace(/ؤ/g, 'و')
+        .replace(/ئ/g, 'ي')
+        .replace(/ة/g, 'ه')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
 }
 
 async function getProducts() {
@@ -745,11 +785,11 @@ window.saveProduct = async function(event) {
 
 // Search products
 window.searchProducts = function() {
-    const searchTerm = document.getElementById('productSearch').value.toLowerCase();
+    const searchTerm = normalizeArabic(document.getElementById('productSearch').value);
     const rows = document.querySelectorAll('#productsTable tr');
     
     rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
+        const text = normalizeArabic(row.textContent);
         if (text.includes(searchTerm)) {
             row.style.display = '';
         } else {
