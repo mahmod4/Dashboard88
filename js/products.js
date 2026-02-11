@@ -75,7 +75,17 @@ export async function loadProducts() {
                                     <td>${product.price?.toFixed(2) || 0} ج.م</td>
                                     <td>${product.discountPrice ? product.discountPrice.toFixed(2) + ' ج.م' : '-'}</td>
                                     <td>${product.weight ? product.weight + ' كجم' : '-'}</td>
-                                    <td>${product.soldByWeight ? 'بالوزن' : 'بالعدد'}</td>
+                                    <td>
+                                        <label class="inline-flex items-center cursor-pointer select-none">
+                                            <input
+                                                type="checkbox"
+                                                ${product.soldByWeight ? 'checked' : ''}
+                                                onchange="toggleSoldByWeight('${product.id}', this.checked)"
+                                                class="ml-2"
+                                            >
+                                            <span>${product.soldByWeight ? 'بالوزن' : 'بالعدد'}</span>
+                                        </label>
+                                    </td>
                                     <td>${product.stock || 0}</td>
                                     <td>
                                         <span class="badge badge-${product.available ? 'success' : 'danger'}">
@@ -289,6 +299,21 @@ export async function loadProducts() {
     } catch (error) {
         console.error('Error loading products:', error);
         pageContent.innerHTML = '<div class="card"><p class="text-red-600">حدث خطأ أثناء تحميل المنتجات</p></div>';
+    }
+}
+
+window.toggleSoldByWeight = async function(productId, checked) {
+    try {
+        await updateDoc(doc(db, 'products', productId), {
+            soldByWeight: checked === true,
+            hasWeightOptions: checked === true,
+            updatedAt: new Date()
+        });
+        loadProducts();
+    } catch (error) {
+        console.error('Error updating soldByWeight:', error);
+        alert('حدث خطأ أثناء تحديث خيار الوزن');
+        loadProducts();
     }
 }
 
