@@ -279,6 +279,28 @@ body {
     .sidebar.open {
         transform: translateX(0);
     }
+
+    /* Overlay خلف القائمة الجانبية على الهاتف */
+    .sidebar-overlay {
+        display: none;
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 49;
+    }
+
+    body.sidebar-open .sidebar-overlay {
+        display: block;
+    }
+
+    /* منع التمرير في الخلفية عند فتح القائمة */
+    body.sidebar-open {
+        overflow: hidden;
+        touch-action: none;
+    }
     
     /* Main content */
     .main-content {
@@ -295,6 +317,12 @@ body {
     /* Tables */
     .table {
         font-size: 12px;
+    }
+
+    /* سكرول أفقي للجداول في الهاتف */
+    .overflow-x-auto {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
     
     .table th,
@@ -475,27 +503,7 @@ body {
         padding: 1.5rem;
     }
     
-    /* Sidebar overlay */
-    .sidebar-overlay {
-        display: none;
-        position: fixed;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0,0,0,0.5);
-        z-index: 49;
-    }
-    
-    .sidebar.open ~ .sidebar-overlay,
-    body.sidebar-open .sidebar-overlay {
-        display: block;
-    }
-    
-    /* Table scroll on mobile */
-    .overflow-x-auto {
-        -webkit-overflow-scrolling: touch;
-    }
+    /* (تم نقل overlay + table scroll لقسم 768px لتعمل على كل الهواتف) */
     
     /* Better spacing for mobile */
     .p-8 {
