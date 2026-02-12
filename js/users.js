@@ -1,12 +1,25 @@
-import { collection, updateDoc, doc, getDocs, getDoc, query, orderBy, where } from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js';
+import { collection, addDoc, updateDoc, doc, getDocs, getDoc, query, orderBy, where } from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js';
 import { db } from './firebase-config.js';
 
+// ================================
+// صفحة: المستخدمين
+// تعرض:
+// - قائمة المستخدمين من Collection (users)
+// - عدد الطلبات لكل مستخدم (من Collection orders)
+// - نافذة تفاصيل المستخدم + سجل طلباته
+// - تفعيل/حظر المستخدم
+// - نظام نقاط الولاء (قراءة/إضافة)
+// ================================
+
+// نقطة الدخول لتحميل صفحة المستخدمين داخل عنصر pageContent
 export async function loadUsers() {
     const pageContent = document.getElementById('pageContent');
     
     try {
+        // جلب المستخدمين (وقد نشتقهم من الطلبات لو لم توجد وثائق users)
         const users = await getUsers();
         
+        // بناء واجهة الصفحة
         pageContent.innerHTML = `
             <div class="card mb-6">
                 <h2 class="text-2xl font-bold">المستخدمين</h2>
@@ -72,23 +85,27 @@ export async function loadUsers() {
         `;
     } catch (error) {
         console.error('Error loading users:', error);
+        // رسالة خطأ واضحة داخل الواجهة
         const msg = (error && (error.message || error.code)) ? `${error.code ? error.code + ': ' : ''}${error.message || ''}` : 'خطأ غير معروف';
         pageContent.innerHTML = `<div class="card"><p class="text-red-600">حدث خطأ أثناء تحميل المستخدمين</p><pre style="white-space:pre-wrap;direction:ltr;text-align:left;" class="mt-2 text-xs">${msg}</pre></div>`;
     }
 }
 
+// جلب المستخدمين + حساب عدد الطلبات لكل مستخدم
 async function getUsers() {
     let usersSnapshot;
     try {
+        // نحاول ترتيب المستخدمين حسب createdAt
         usersSnapshot = await getDocs(query(collection(db, 'users'), orderBy('createdAt', 'desc')));
     } catch (e) {
+        // fallback: في حال عدم وجود index أو اختلاف الحقول
         console.warn('Users query with orderBy(createdAt) failed, falling back to unordered query:', e);
         usersSnapshot = await getDocs(collection(db, 'users'));
     }
 
     const users = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
-    // Get orders count for each user
+    // جلب الطلبات لحساب عدد الطلبات لكل مستخدم
     let orders = [];
     try {
         const ordersSnapshot = await getDocs(collection(db, 'orders'));
@@ -97,7 +114,7 @@ async function getUsers() {
         console.warn('Orders read failed while calculating orders count:', e);
     }
 
-    // If the store doesn't create /users docs, build a list from existing orders
+    // لو المتجر لا ينشئ وثائق users، نبني قائمة مستخدمين من الطلبات الموجودة
     if (users.length === 0 && orders.length > 0) {
         const byUserId = new Map();
         for (const o of orders) {
@@ -123,25 +140,27 @@ async function getUsers() {
         }));
     }
     
+    // حساب عدد الطلبات بناءً على userId داخل orders
     return users.map(user => ({
         ...user,
         ordersCount: orders.filter(o => o.userId === user.id).length
     }));
 }
 
+// عرض نافذة تفاصيل المستخدم
 window.viewUserDetails = async function(userId) {
     try {
         const userDoc = await getDoc(doc(db, 'users', userId));
         if (userDoc.exists()) {
             const user = { id: userDoc.id, ...userDoc.data() };
             
-            // Calculate loyalty level
+            // حساب نقاط الولاء
             const loyaltyPoints = await getUserLoyaltyPoints(userId);
             
-            // Calculate loyalty level
+            // تحديد مستوى الولاء بناءً على النقاط
             const loyaltyLevel = calculateLoyaltyLevel(loyaltyPoints.points);
             
-            // Get user orders
+            // جلب طلبات المستخدم لعرضها في التفاصيل
             const ordersSnapshot = await getDocs(query(
                 collection(db, 'orders'),
                 orderBy('createdAt', 'desc')
@@ -226,11 +245,12 @@ window.viewUserDetails = async function(userId) {
     }
 }
 
+// إغلاق نافذة تفاصيل المستخدم
 window.closeUserDetailsModal = function() {
     document.getElementById('userDetailsModal').style.display = 'none';
 }
 
-// Get user loyalty points
+// قراءة نقاط الولاء من Collection (loyaltyPoints)
 async function getUserLoyaltyPoints(userId) {
     try {
         const pointsSnapshot = await getDocs(query(
@@ -253,7 +273,7 @@ async function getUserLoyaltyPoints(userId) {
     }
 }
 
-// Open add points modal
+// فتح نافذة إضافة نقاط للمستخدم
 window.openAddPointsModal = function(userId) {
     // Create modal HTML
     const modalHtml = `
@@ -288,7 +308,7 @@ window.openAddPointsModal = function(userId) {
     document.getElementById('addPointsModal').style.display = 'block';
 }
 
-// Close add points modal
+// إغلاق نافذة إضافة النقاط
 window.closeAddPointsModal = function() {
     const modal = document.getElementById('addPointsModal');
     if (modal) {
@@ -296,7 +316,7 @@ window.closeAddPointsModal = function() {
     }
 }
 
-// Add loyalty points
+// إضافة نقاط ولاء (تسجيل عملية في loyaltyPoints)
 window.addLoyaltyPoints = async function(event, userId) {
     event.preventDefault();
     
@@ -339,6 +359,7 @@ window.addLoyaltyPoints = async function(event, userId) {
     }
 }
 
+// تفعيل/حظر المستخدم عبر تحديث حقل active
 window.toggleUserStatus = async function(userId, newStatus) {
     try {
         await updateDoc(doc(db, 'users', userId), {
@@ -376,7 +397,7 @@ function getOrderStatusText(status) {
     return texts[status] || status;
 }
 
-// Calculate loyalty level
+// تحديد مستوى الولاء حسب عدد النقاط
 function calculateLoyaltyLevel(points) {
     if (points >= 1000) {
         return {

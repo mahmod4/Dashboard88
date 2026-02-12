@@ -1,4 +1,4 @@
-import { collection, addDoc, updateDoc, doc, getDocs, getDoc, query, orderBy, where } from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js';
+import { collection, addDoc, setDoc, updateDoc, doc, getDocs, getDoc, query, orderBy, where } from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js';
 import { db } from './firebase-config.js';
 
 export async function loadLoyalty() {
@@ -194,15 +194,15 @@ window.saveLoyaltySettings = async function(event) {
         alert('تم حفظ الإعدادات بنجاح');
         loadLoyalty();
     } catch (error) {
-        // If document doesn't exist, create it
+        // لو المستند غير موجود: ننشئ settings/loyalty مباشرة
         if (error.code === 'not-found') {
-            await addDoc(collection(db, 'settings'), {
-                id: 'loyalty',
+            const settingsRef = doc(db, 'settings', 'loyalty');
+            await setDoc(settingsRef, {
                 pointsPercentage,
                 pointValue,
                 createdAt: new Date(),
                 updatedAt: new Date()
-            });
+            }, { merge: true });
             alert('تم حفظ الإعدادات بنجاح');
             loadLoyalty();
         } else {

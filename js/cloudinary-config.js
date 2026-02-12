@@ -1,14 +1,17 @@
 // Cloudinary Configuration - إعدادات Cloudinary
 // إعدادات API للرفع الصور
 const cloudinaryConfig = {
-    cloudName: 'djqf5kqyq', // Cloud name
+    cloudName: 'ddm0j229o', // Cloud name
     apiKey: '915513453848396', // API Key
     apiSecret: 'gwwRDcbDIKPdu1-f6jSyLsCu2yk', // API Secret
-    uploadPreset: 'products_upload', // Upload preset للمنتجات
+    uploadPreset: 'my-store', // Upload preset الموجود في الحساب (Unsigned)
     folder: 'products' // مجلد المنتجات
 };
 
 // دالة لإنشاء توقيع التحميل
+// ⚠️ ملاحظة: هذه الدالة تحتاج Node.js crypto module
+// تعمل في بيئة Node.js أو build process فقط
+// لا تعمل مباشرة في المتصفح (لأن الرفع من المتصفح يستخدم Unsigned preset)
 function generateSignature(dataToSign) {
     const crypto = require('crypto');
     return crypto.createHash('sha1').update(dataToSign + cloudinaryConfig.apiSecret).digest('hex');

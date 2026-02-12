@@ -12,7 +12,15 @@ import { loadNotifications } from './notifications.js';
 import { loadContent } from './content.js';
 import { loadSettings } from './settings.js';
 
-// Page elements
+// ================================
+// ملف التحكم الرئيسي للوحة الإدارة
+// المسؤول عن:
+// - التحقق من حالة تسجيل الدخول وصلاحية الأدمن
+// - إظهار صفحة الدخول/اللوحة
+// - التنقل بين الصفحات داخل اللوحة (SPA)
+// ================================
+
+// عناصر الواجهة الرئيسية (Login/Dashboard)
 const loginPage = document.getElementById('loginPage');
 const dashboardPage = document.getElementById('dashboardPage');
 const loginForm = document.getElementById('loginForm');
@@ -22,10 +30,10 @@ const pageTitle = document.getElementById('pageTitle');
 const pageContent = document.getElementById('pageContent');
 const userName = document.getElementById('userName');
 
-// Current page
+// الصفحة الحالية داخل اللوحة (تُستخدم أيضًا مع زر Reset)
 let currentPage = 'dashboard';
 
-// Page titles
+// عناوين الصفحات المعروضة في الـ Header
 const pageTitles = {
     dashboard: 'الصفحة الرئيسية',
     products: 'إدارة المنتجات',
@@ -41,7 +49,7 @@ const pageTitles = {
     settings: 'الإعدادات'
 };
 
-// Page loaders
+// دوال تحميل كل صفحة (ترسم الـ UI وتستدعي Firestore عند الحاجة)
 const pageLoaders = {
     dashboard: loadDashboard,
     products: loadProducts,
@@ -57,9 +65,13 @@ const pageLoaders = {
     settings: loadSettings
 };
 
-// Initialize
+// ================================
+// تهيئة التطبيق بعد تحميل DOM
+// ================================
 document.addEventListener('DOMContentLoaded', () => {
-    // Check auth state
+    // مراقبة حالة تسجيل الدخول:
+    // - إذا المستخدم مسجل + أدمن => إظهار اللوحة
+    // - غير ذلك => إظهار صفحة تسجيل الدخول
     onAuthStateChange((user, isAdmin) => {
         if (user && isAdmin) {
             showDashboard();
@@ -69,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Login form
+    // نموذج تسجيل الدخول (Email/Password)
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const emailInput = document.getElementById('loginEmail');
@@ -77,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const email = emailInput.value;
         const password = passwordInput.value;
         
-        // Show loading state
+        // حالة تحميل للزر + إخفاء رسالة الخطأ
         const submitBtn = loginForm.querySelector('button[type="submit"]');
         const originalBtnText = submitBtn.innerHTML;
         submitBtn.disabled = true;
@@ -116,13 +128,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Logout button
+    // زر تسجيل الخروج
     logoutBtn.addEventListener('click', async () => {
         await logout();
         showLogin();
     });
 
-    // Navigation
+    // التنقل: عند الضغط على عنصر من القائمة الجانبية يتم تحميل الصفحة المطلوبة
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
@@ -132,14 +144,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// Show login page
+// إظهار صفحة تسجيل الدخول
 function showLogin() {
     loginPage.classList.remove('hidden');
     dashboardPage.classList.add('hidden');
     // Don't reset form automatically - only reset on successful login
 }
 
-// Show dashboard
+// إظهار صفحة اللوحة (بعد التأكد أن المستخدم أدمن)
 function showDashboard() {
     loginPage.classList.add('hidden');
     dashboardPage.classList.remove('hidden');
@@ -148,11 +160,11 @@ function showDashboard() {
     navigateToPage('dashboard');
 }
 
-// Navigate to page
+// الانتقال إلى صفحة داخل اللوحة (وتغيير حالة Active + تحميل المحتوى)
 export function navigateToPage(page) {
     currentPage = page;
     
-    // Update active nav item
+    // تحديث العنصر النشط في القائمة الجانبية
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');
         if (item.getAttribute('data-page') === page) {
@@ -160,10 +172,10 @@ export function navigateToPage(page) {
         }
     });
 
-    // Update page title
+    // تحديث عنوان الصفحة في الـ Header
     pageTitle.textContent = pageTitles[page] || page;
 
-    // Load page content
+    // عرض Loader ثم تحميل الصفحة المطلوبة
     pageContent.innerHTML = '<div class="loading"><div class="spinner"></div><p>جاري التحميل...</p></div>';
     
     if (pageLoaders[page]) {
@@ -173,7 +185,7 @@ export function navigateToPage(page) {
     }
 }
 
-// Expose helpers for non-module scripts (e.g. Reset button in index.html)
+// إتاحة بعض الدوال عالميًا (لاستخدامها من سكربتات غير Modules مثل زر Reset في index.html)
 try {
     window.navigateToPage = navigateToPage;
     window.getDashboardCurrentPage = () => currentPage;

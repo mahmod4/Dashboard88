@@ -1,12 +1,20 @@
 import { collection, updateDoc, doc, getDocs, getDoc, query, orderBy, where } from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js';
 import { db } from './firebase-config.js';
 
+// ================================
+// صفحة: الطلبات
+// تعرض قائمة الطلبات + فلتر الحالة + تحديث حالة الطلب + نافذة تفاصيل + طباعة فاتورة
+// ================================
+
+// نقطة الدخول لتحميل صفحة الطلبات داخل عنصر pageContent
 export async function loadOrders() {
     const pageContent = document.getElementById('pageContent');
     
     try {
+        // جلب الطلبات (بدون فلتر افتراضيًا)
         const orders = await getOrders();
         
+        // بناء واجهة الصفحة
         pageContent.innerHTML = `
             <div class="card mb-6">
                 <div class="flex justify-between items-center mb-4">
@@ -91,20 +99,24 @@ export async function loadOrders() {
         `;
     } catch (error) {
         console.error('Error loading orders:', error);
+        // رسالة خطأ واضحة داخل الواجهة
         const msg = (error && (error.message || error.code)) ? `${error.code ? error.code + ': ' : ''}${error.message || ''}` : 'خطأ غير معروف';
         pageContent.innerHTML = `<div class="card"><p class="text-red-600">حدث خطأ أثناء تحميل الطلبات</p><pre style="white-space:pre-wrap;direction:ltr;text-align:left;" class="mt-2 text-xs">${msg}</pre></div>`;
     }
 }
 
+// جلب الطلبات من Firestore (مع إمكانية فلترة الحالة)
 async function getOrders(filterStatus = '') {
     let snapshot;
     try {
+        // نحاول ترتيب الطلبات حسب createdAt (الأحدث أولاً)
         let q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
         if (filterStatus) {
             q = query(collection(db, 'orders'), where('status', '==', filterStatus), orderBy('createdAt', 'desc'));
         }
         snapshot = await getDocs(q);
     } catch (e) {
+        // fallback: في حال لم يوجد index أو الحقل createdAt غير موجود في بعض الوثائق
         console.warn('Orders query with orderBy(createdAt) failed, falling back to unordered query:', e);
         snapshot = await getDocs(collection(db, 'orders'));
     }
@@ -130,6 +142,7 @@ async function getOrders(filterStatus = '') {
     });
 }
 
+// دالة عامة تُستدعى من select الخاص بالفلتر داخل HTML
 window.filterOrders = async function() {
     const status = document.getElementById('statusFilter').value;
     const orders = await getOrders(status);
@@ -166,19 +179,21 @@ window.filterOrders = async function() {
     `).join('');
 }
 
+// تحديث حالة الطلب في Firestore
 window.updateOrderStatus = async function(orderId, newStatus) {
     try {
         await updateDoc(doc(db, 'orders', orderId), {
             status: newStatus,
             updatedAt: new Date()
         });
-        // Orders Management - إدارة الطلبات بنجاح
+        // تم تحديث الحالة بنجاح
     } catch (error) {
         console.error('Error updating order status:', error);
         alert('حدث خطأ أثناء تحديث حالة الطلب');
     }
 }
 
+// عرض تفاصيل الطلب داخل نافذة Modal
 window.viewOrderDetails = async function(orderId) {
     try {
         const orderDoc = await getDoc(doc(db, 'orders', orderId));
@@ -254,10 +269,12 @@ window.viewOrderDetails = async function(orderId) {
     }
 }
 
+// إغلاق نافذة تفاصيل الطلب
 window.closeOrderDetailsModal = function() {
     document.getElementById('orderDetailsModal').style.display = 'none';
 }
 
+// طباعة فاتورة مبسطة في نافذة جديدة
 window.printInvoice = async function(orderId) {
     try {
         const orderDoc = await getDoc(doc(db, 'orders', orderId));

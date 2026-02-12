@@ -1,13 +1,24 @@
 import { collection, query, where, getDocs, getCountFromServer, orderBy, limit } from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js';
 import { db } from './firebase-config.js';
 
+// ================================
+// صفحة: الرئيسية (Dashboard)
+// تعرض إحصائيات سريعة:
+// - مبيعات اليوم/الشهر
+// - عدد الطلبات/المستخدمين
+// - أحدث الطلبات
+// - إشعارات سريعة
+// ================================
+
+// نقطة الدخول لتحميل واجهة الصفحة الرئيسية داخل عنصر pageContent
 export async function loadDashboard() {
     const pageContent = document.getElementById('pageContent');
     
     try {
-        // Get statistics
+        // جلب البيانات الإحصائية اللازمة لبناء الصفحة
         const stats = await getDashboardStats();
         
+        // بناء واجهة الصفحة (HTML) بناءً على الإحصائيات
         pageContent.innerHTML = `
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
                 <div class="stats-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
@@ -80,43 +91,45 @@ export async function loadDashboard() {
         `;
     } catch (error) {
         console.error('Error loading dashboard:', error);
+        // رسالة خطأ واضحة داخل الواجهة
         const msg = (error && (error.message || error.code)) ? `${error.code ? error.code + ': ' : ''}${error.message || ''}` : 'خطأ غير معروف';
         pageContent.innerHTML = `<div class="card"><p class="text-red-600">حدث خطأ أثناء تحميل البيانات</p><pre style="white-space:pre-wrap;direction:ltr;text-align:left;" class="mt-2 text-xs">${msg}</pre></div>`;
     }
 }
 
+// حساب وتجميع الإحصائيات المطلوبة للـ Dashboard
 async function getDashboardStats() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 
-    // Get orders
+    // جلب كل الطلبات (مستخدم للعدادات والطلبات الأخيرة)
     const ordersSnapshot = await getDocs(collection(db, 'orders'));
     const orders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    // Calculate today's sales
+    // حساب مبيعات اليوم
     const todayOrders = orders.filter(order => {
         const orderDate = order.createdAt?.toDate();
         return orderDate && orderDate >= today;
     });
     const todaySales = todayOrders.reduce((sum, order) => sum + (order.total || 0), 0);
 
-    // Calculate month's sales
+    // حساب مبيعات الشهر
     const monthOrders = orders.filter(order => {
         const orderDate = order.createdAt?.toDate();
         return orderDate && orderDate >= monthStart;
     });
     const monthSales = monthOrders.reduce((sum, order) => sum + (order.total || 0), 0);
 
-    // Get users count
+    // عدد المستخدمين (باستخدام count aggregation)
     const usersSnapshot = await getCountFromServer(collection(db, 'users'));
     const totalUsers = usersSnapshot.data().count;
 
-    // Get top products
+    // جلب المنتجات (لاستخدامها في المنتجات الأكثر مبيعاً)
     const productsSnapshot = await getDocs(collection(db, 'products'));
     const products = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
-    // Calculate product sales (simplified - in real app, track sales per product)
+    // حساب المنتجات الأكثر مبيعاً (مبسط)
     const topProducts = products
         .map(product => ({
             name: product.name || 'منتج',
@@ -126,7 +139,7 @@ async function getDashboardStats() {
         .sort((a, b) => b.sales - a.sales)
         .slice(0, 5);
 
-    // Recent orders
+    // أحدث الطلبات
     const recentOrders = orders
         .sort((a, b) => {
             const dateA = a.createdAt?.toDate() || new Date(0);
@@ -141,7 +154,7 @@ async function getDashboardStats() {
             date: order.createdAt?.toDate().toLocaleDateString('ar-SA') || 'غير محدد'
         }));
 
-    // Notifications
+    // إشعارات سريعة (مبنية من بيانات الطلبات/المنتجات)
     const notifications = [
         {
             type: 'info',
@@ -166,6 +179,7 @@ async function getDashboardStats() {
     };
 }
 
+// تحويل حالة الطلب إلى لون Badge
 function getStatusColor(status) {
     const colors = {
         'new': 'info',
@@ -177,6 +191,7 @@ function getStatusColor(status) {
     return colors[status] || 'info';
 }
 
+// تحويل حالة الطلب إلى نص عربي
 function getStatusText(status) {
     const texts = {
         'new': 'جديد',

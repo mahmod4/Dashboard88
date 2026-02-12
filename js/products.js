@@ -3,12 +3,25 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gsta
 import { db, storage } from './firebase-config.js';
 import { uploadImageToCloudinary, deleteImageFromCloudinary, uploadImageWithUI } from './cloudinary-config.js';
 
+// ================================
+// صفحة: المنتجات
+// المسؤول عن:
+// - عرض المنتجات + بحث سريع (يدعم العربية)
+// - إضافة/تعديل/حذف منتج
+// - استيراد منتجات من CSV
+// - تعديل جماعي (Bulk Edit)
+// - تفعيل خيار البيع بالوزن لكل منتج (soldByWeight)
+// ================================
+
+// نقطة الدخول لتحميل صفحة المنتجات داخل عنصر pageContent
 export async function loadProducts() {
     const pageContent = document.getElementById('pageContent');
     
     try {
+        // جلب المنتجات من Firestore
         const products = await getProducts();
         
+        // بناء واجهة الصفحة
         pageContent.innerHTML = `
             <div class="card mb-6">
                 <div class="flex justify-between items-center">
@@ -280,6 +293,7 @@ export async function loadProducts() {
         await loadCategoriesForSelect();
 
         // Improve search performance (debounced)
+        // تهيئة البحث: debounce لتقليل عدد عمليات الفلترة أثناء الكتابة
         try {
             const input = document.getElementById('productSearch');
             if (input) {
@@ -302,11 +316,12 @@ export async function loadProducts() {
     }
 }
 
+// تحديث خيار البيع بالوزن مباشرة من جدول المنتجات
 window.toggleSoldByWeight = async function(productId, checked) {
     try {
+        // تحديث المنتج في Firestore
         await updateDoc(doc(db, 'products', productId), {
             soldByWeight: checked === true,
-            hasWeightOptions: checked === true,
             updatedAt: new Date()
         });
         loadProducts();
@@ -317,6 +332,7 @@ window.toggleSoldByWeight = async function(productId, checked) {
     }
 }
 
+// دالة مساعدة: debounce لتأخير تنفيذ الدالة (مفيد للبحث)
 function debounce(func, wait) {
     let timeout;
     return function(...args) {
@@ -325,30 +341,32 @@ function debounce(func, wait) {
     };
 }
 
+// توحيد النص العربي للبحث (إزالة التشكيل وتوحيد أشكال الألف/الياء/التاء المربوطة...)
 function normalizeArabic(text) {
     return String(text || '')
         .normalize('NFKD')
         .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
         .replace(/[إأآا]/g, 'ا')
         .replace(/ى/g, 'ي')
-        .replace(/ؤ/g, 'و')
-        .replace(/ئ/g, 'ي')
         .replace(/ة/g, 'ه')
         .replace(/\s+/g, ' ')
         .trim()
         .toLowerCase();
 }
 
+// جلب المنتجات من Firestore (مرتبة بالأحدث)
 async function getProducts() {
     const snapshot = await getDocs(query(collection(db, 'products'), orderBy('createdAt', 'desc')));
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
+// تحميل الأقسام لملء select داخل نموذج إضافة/تعديل المنتج
 async function loadCategoriesForSelect() {
     try {
         const categoriesSnapshot = await getDocs(collection(db, 'categories'));
         const categories = categoriesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
+        // ملء select
         const select = document.getElementById('productCategory');
         if (select) {
             categories.forEach(cat => {
@@ -363,73 +381,17 @@ async function loadCategoriesForSelect() {
     }
 }
 
-window.openProductModal = function() {
-    document.getElementById('productModal').style.display = 'block';
-    document.getElementById('modalTitle').textContent = 'إضافة منتج جديد';
-    document.getElementById('productForm').reset();
-    document.getElementById('productId').value = '';
-    document.getElementById('imagePreview').classList.add('hidden');
-}
-
-window.closeProductModal = function() {
-    document.getElementById('productModal').style.display = 'none';
-}
-
-window.previewImage = function(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const preview = document.getElementById('imagePreview');
-            preview.src = e.target.result;
-            preview.classList.remove('hidden');
-        };
-        reader.readAsDataURL(file);
-    }
-}
-
-window.editProduct = async function(productId) {
-    try {
-        const productDoc = await getDoc(doc(db, 'products', productId));
-        if (productDoc.exists()) {
-            const product = { id: productDoc.id, ...productDoc.data() };
-            
-            document.getElementById('productId').value = product.id;
-            document.getElementById('productName').value = product.name || '';
-            document.getElementById('productDescription').value = product.description || '';
-            document.getElementById('productPrice').value = product.price || '';
-            document.getElementById('productDiscountPrice').value = product.discountPrice || '';
-            document.getElementById('productCategory').value = product.categoryId || '';
-            document.getElementById('productStock').value = product.stock || 0;
-            document.getElementById('productAvailable').value = product.available ? 'true' : 'false';
-            document.getElementById('productWeight').value = product.weight || '';
-            document.getElementById('productSoldByWeight').value = product.soldByWeight ? 'true' : 'false';
-            
-            if (product.image) {
-                const preview = document.getElementById('imagePreview');
-                preview.src = product.image;
-                preview.classList.remove('hidden');
-            }
-            
-            document.getElementById('modalTitle').textContent = 'تعديل المنتج';
-            document.getElementById('productModal').style.display = 'block';
-            
-            await loadCategoriesForSelect();
-        }
-    } catch (error) {
-        console.error('Error loading product:', error);
-        alert('حدث خطأ أثناء تحميل المنتج');
-    }
-}
-
+// حذف منتج (مع حذف الصورة إن أمكن)
 window.deleteProduct = async function(productId) {
     if (!confirm('هل أنت متأكد من حذف هذا المنتج؟')) return;
     
     try {
-        // Delete image from Cloudinary if exists
+        // جلب بيانات المنتج أولاً (لاستخدامها في حذف الصور إن وجدت)
         const productDoc = await getDoc(doc(db, 'products', productId));
         if (productDoc.exists()) {
-            const product = productDoc.data();
+            const product = { id: productDoc.id, ...productDoc.data() };
+
+            // حذف الصورة من Cloudinary (لو كانت مستخدمة)
             if (product.imagePath) {
                 try {
                     await deleteImageFromCloudinary(product.imagePath);
@@ -438,8 +400,19 @@ window.deleteProduct = async function(productId) {
                     console.error('Error deleting image from Cloudinary:', error);
                 }
             }
+
+            // حذف الصورة من Firebase Storage (لو كانت مستخدمة)
+            if (product.imageStoragePath) {
+                try {
+                    await deleteObject(ref(storage, product.imageStoragePath));
+                    console.log('تم حذف الصورة من Storage:', product.imageStoragePath);
+                } catch (error) {
+                    console.error('Error deleting image from Storage:', error);
+                }
+            }
         }
-        
+
+        // حذف المنتج من Firestore
         await deleteDoc(doc(db, 'products', productId));
         alert('تم حذف المنتج بنجاح');
         loadProducts();
@@ -449,7 +422,9 @@ window.deleteProduct = async function(productId) {
     }
 }
 
-// Import Products Functions
+// ================================
+// الاستيراد من CSV
+// ================================
 window.openImportModal = function() {
     document.getElementById('importModal').style.display = 'block';
     document.getElementById('importForm').reset();
@@ -466,10 +441,12 @@ window.openImportModal = function() {
     }
 }
 
+// إغلاق نافذة الاستيراد
 window.closeImportModal = function() {
     document.getElementById('importModal').style.display = 'none';
 }
 
+// قراءة ملف CSV وعرض معاينة قبل الاستيراد
 window.previewImportFile = async function(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -534,6 +511,7 @@ window.previewImportFile = async function(event) {
     }
 }
 
+// تنفيذ الاستيراد الفعلي (إضافة المنتجات إلى Firestore)
 window.importProducts = async function(event) {
     event.preventDefault();
     
@@ -691,6 +669,7 @@ window.importProducts = async function(event) {
 window.saveProduct = async function(event) {
     event.preventDefault();
     
+    // حفظ منتج: إضافة جديد أو تحديث موجود حسب وجود productId
     const productId = document.getElementById('productId').value;
     const name = document.getElementById('productName').value;
     const description = document.getElementById('productDescription').value;
@@ -808,7 +787,9 @@ window.saveProduct = async function(event) {
     }
 }
 
-// Search products
+// ================================
+// البحث والفلترة داخل جدول المنتجات
+// ================================
 window.searchProducts = function() {
     const searchTerm = normalizeArabic(document.getElementById('productSearch').value);
     const rows = document.querySelectorAll('#productsTable tr');
@@ -823,13 +804,13 @@ window.searchProducts = function() {
     });
 }
 
-// Clear search
+// مسح خانة البحث وإظهار كل المنتجات
 window.clearSearch = function() {
     document.getElementById('productSearch').value = '';
     searchProducts();
 }
 
-// Toggle select all
+// تحديد/إلغاء تحديد كل المنتجات (للاستخدام في التعديل الجماعي)
 window.toggleSelectAll = function() {
     const selectAll = document.getElementById('selectAll');
     const checkboxes = document.querySelectorAll('.product-checkbox');
@@ -839,7 +820,9 @@ window.toggleSelectAll = function() {
     });
 }
 
-// Open bulk edit modal
+// ================================
+// التعديل الجماعي (Bulk Edit)
+// ================================
 window.openBulkEditModal = function() {
     const selectedProducts = Array.from(document.querySelectorAll('.product-checkbox:checked'))
         .map(cb => cb.value);
@@ -927,7 +910,7 @@ window.openBulkEditModal = function() {
     loadCategoriesForSelect();
 }
 
-// Close bulk edit modal
+// إغلاق نافذة التعديل الجماعي
 window.closeBulkEditModal = function() {
     const modal = document.querySelector('.modal');
     if (modal) {
@@ -935,7 +918,7 @@ window.closeBulkEditModal = function() {
     }
 }
 
-// Save bulk edit
+// حفظ التعديلات الجماعية وتحديث المنتجات في Firestore
 window.saveBulkEdit = async function(event) {
     event.preventDefault();
     
