@@ -11,12 +11,17 @@ export async function checkAdminStatus(userId) {
             const data = userDoc.data();
             console.log('Admin document data:', data);
             console.log('isAdmin value:', data.isAdmin, 'Type:', typeof data.isAdmin);
-            return data.isAdmin === true;
+            const isAdmin = data.isAdmin === true && data.active !== false;
+            if (!isAdmin) {
+                return { isAdmin: false, role: null };
+            }
+            const role = (data.role === 'super_admin' || data.role === 'admin') ? data.role : 'admin';
+            return { isAdmin: true, role };
         }
-        return false;
+        return { isAdmin: false, role: null };
     } catch (error) {
         console.error('Error checking admin status:', error);
-        return false;
+        return { isAdmin: false, role: null };
     }
 }
 
@@ -26,10 +31,10 @@ export async function login(email, password) {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         console.log('Login successful, checking admin status for:', userCredential.user.uid);
         
-        const isAdmin = await checkAdminStatus(userCredential.user.uid);
-        console.log('Admin status:', isAdmin);
+        const adminInfo = await checkAdminStatus(userCredential.user.uid);
+        console.log('Admin status:', adminInfo);
         
-        if (!isAdmin) {
+        if (!adminInfo.isAdmin) {
             await signOut(auth);
             
             // رسالة خطأ مفصلة
@@ -88,10 +93,10 @@ export async function logout() {
 export function onAuthStateChange(callback) {
     onAuthStateChanged(auth, async (user) => {
         if (user) {
-            const isAdmin = await checkAdminStatus(user.uid);
-            callback(user, isAdmin);
+            const adminInfo = await checkAdminStatus(user.uid);
+            callback(user, adminInfo);
         } else {
-            callback(null, false);
+            callback(null, { isAdmin: false, role: null });
         }
     });
 }

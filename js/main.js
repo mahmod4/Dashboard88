@@ -25,6 +25,31 @@ const userName = document.getElementById('userName');
 // Current page
 let currentPage = 'dashboard';
 
+let adminInfo = { isAdmin: false, role: null };
+
+function getAllowedPagesForRole(role) {
+    if (role === 'super_admin') {
+        return new Set(Object.keys(pageTitles));
+    }
+    if (role === 'admin') {
+        return new Set(['dashboard', 'products', 'categories', 'orders', 'offers']);
+    }
+    return new Set();
+}
+
+function applyRoleToSidebar(role) {
+    const allowed = getAllowedPagesForRole(role);
+    document.querySelectorAll('.nav-item').forEach(item => {
+        const page = item.getAttribute('data-page');
+        if (!page) return;
+        if (allowed.has(page)) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
 // Page titles
 const pageTitles = {
     dashboard: 'الصفحة الرئيسية',
@@ -60,10 +85,16 @@ const pageLoaders = {
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     // Check auth state
-    onAuthStateChange((user, isAdmin) => {
-        if (user && isAdmin) {
+    onAuthStateChange((user, info) => {
+        adminInfo = info || { isAdmin: false, role: null };
+        try {
+            window.dashboardAdminInfo = adminInfo;
+        } catch (e) {}
+
+        if (user && adminInfo.isAdmin) {
             showDashboard();
             userName.textContent = user.email;
+            applyRoleToSidebar(adminInfo.role);
         } else {
             showLogin();
         }
@@ -150,6 +181,10 @@ function showDashboard() {
 
 // Navigate to page
 export function navigateToPage(page) {
+    const allowed = getAllowedPagesForRole(adminInfo && adminInfo.role);
+    if (!allowed.has(page)) {
+        page = 'dashboard';
+    }
     currentPage = page;
     
     // Update active nav item
