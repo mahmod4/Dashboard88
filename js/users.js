@@ -1,4 +1,4 @@
-import { collection, updateDoc, doc, getDocs, getDoc, query, orderBy, where, setDoc } from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js';
+import { collection, updateDoc, doc, getDocs, getDoc, query, orderBy, where } from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js';
 import { db } from './firebase-config.js';
 
 export async function loadUsers() {
@@ -6,83 +6,11 @@ export async function loadUsers() {
     
     try {
         const users = await getUsers();
-        const adminInfo = (window.dashboardAdminInfo) || { isAdmin: false, role: null };
-        const canManageAdmins = adminInfo && adminInfo.role === 'super_admin';
-
-        let admins = [];
-        if (canManageAdmins) {
-            try {
-                admins = await getAdmins();
-            } catch (e) {
-                console.warn('Failed to load admins list:', e);
-            }
-        }
         
         pageContent.innerHTML = `
             <div class="card mb-6">
                 <h2 class="text-2xl font-bold">المستخدمين</h2>
             </div>
-
-            ${canManageAdmins ? `
-            <div class="card mb-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-bold">إدارة الأدمنز</h2>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-gray-700 mb-2">UID</label>
-                        <input type="text" id="adminUidInput" placeholder="UID للمستخدم" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-                        <p class="text-xs text-gray-500 mt-2">ملاحظة: لازم تدخل UID (لا يمكن التحويل من Email إلى UID من الواجهة فقط).</p>
-                    </div>
-                    <div>
-                        <label class="block text-gray-700 mb-2">الدور</label>
-                        <select id="adminRoleInput" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-                            <option value="admin">admin (منتجات/طلبات/أقسام)</option>
-                            <option value="super_admin">super_admin (كامل الصلاحيات)</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="mt-4 flex justify-end">
-                    <button class="btn-primary" onclick="upsertAdmin()">
-                        <i class="fas fa-user-shield ml-2"></i>إضافة/تحديث أدمن
-                    </button>
-                </div>
-
-                <div class="mt-6 overflow-x-auto">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>UID</th>
-                                <th>الدور</th>
-                                <th>مفعل</th>
-                                <th>الإجراءات</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${admins.length ? admins.map(a => `
-                                <tr>
-                                    <td style="font-family:monospace;direction:ltr;text-align:left;">${a.id}</td>
-                                    <td>
-                                        <select class="px-3 py-1 border rounded" onchange="updateAdminRole('${a.id}', this.value)">
-                                            <option value="admin" ${a.role === 'admin' ? 'selected' : ''}>admin</option>
-                                            <option value="super_admin" ${a.role === 'super_admin' ? 'selected' : ''}>super_admin</option>
-                                        </select>
-                                    </td>
-                                    <td>
-                                        <input type="checkbox" ${a.active !== false ? 'checked' : ''} onchange="toggleAdminActive('${a.id}', this.checked)">
-                                    </td>
-                                    <td>
-                                        <button class="btn-danger text-sm py-1 px-3" onclick="removeAdmin('${a.id}')">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                            `).join('') : `<tr><td colspan="4" class="text-gray-500">لا توجد أدمنز</td></tr>`}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            ` : ''}
 
             <div class="card">
                 ${users.length === 0 ? `
@@ -146,85 +74,6 @@ export async function loadUsers() {
         console.error('Error loading users:', error);
         const msg = (error && (error.message || error.code)) ? `${error.code ? error.code + ': ' : ''}${error.message || ''}` : 'خطأ غير معروف';
         pageContent.innerHTML = `<div class="card"><p class="text-red-600">حدث خطأ أثناء تحميل المستخدمين</p><pre style="white-space:pre-wrap;direction:ltr;text-align:left;" class="mt-2 text-xs">${msg}</pre></div>`;
-    }
-}
-
-async function getAdmins() {
-    let snap;
-    try {
-        snap = await getDocs(collection(db, 'admins'));
-    } catch (e) {
-        console.warn('Admins read failed:', e);
-        return [];
-    }
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-}
-
-window.upsertAdmin = async function() {
-    const adminInfo = (window.dashboardAdminInfo) || { isAdmin: false, role: null };
-    if (!adminInfo || adminInfo.role !== 'super_admin') {
-        alert('غير مصرح');
-        return;
-    }
-    const uid = (document.getElementById('adminUidInput')?.value || '').trim();
-    const role = (document.getElementById('adminRoleInput')?.value || 'admin').trim();
-    if (!uid) {
-        alert('يرجى إدخال UID');
-        return;
-    }
-    if (role !== 'admin' && role !== 'super_admin') {
-        alert('Role غير صالح');
-        return;
-    }
-    try {
-        await setDoc(doc(db, 'admins', uid), {
-            isAdmin: true,
-            role: role,
-            active: true,
-            updatedAt: new Date()
-        }, { merge: true });
-        alert('تم حفظ الأدمن بنجاح');
-        loadUsers();
-    } catch (e) {
-        console.error('Failed to upsert admin:', e);
-        alert('حدث خطأ أثناء حفظ الأدمن');
-    }
-}
-
-window.updateAdminRole = async function(uid, role) {
-    const adminInfo = (window.dashboardAdminInfo) || { isAdmin: false, role: null };
-    if (!adminInfo || adminInfo.role !== 'super_admin') return;
-    if (role !== 'admin' && role !== 'super_admin') return;
-    try {
-        await updateDoc(doc(db, 'admins', uid), { role, updatedAt: new Date() });
-    } catch (e) {
-        console.error('Failed to update admin role:', e);
-        alert('حدث خطأ أثناء تحديث الدور');
-    }
-}
-
-window.toggleAdminActive = async function(uid, enabled) {
-    const adminInfo = (window.dashboardAdminInfo) || { isAdmin: false, role: null };
-    if (!adminInfo || adminInfo.role !== 'super_admin') return;
-    try {
-        await updateDoc(doc(db, 'admins', uid), { active: enabled === true, updatedAt: new Date() });
-    } catch (e) {
-        console.error('Failed to toggle admin active:', e);
-        alert('حدث خطأ أثناء تحديث حالة الأدمن');
-    }
-}
-
-window.removeAdmin = async function(uid) {
-    const adminInfo = (window.dashboardAdminInfo) || { isAdmin: false, role: null };
-    if (!adminInfo || adminInfo.role !== 'super_admin') return;
-    const ok = confirm('هل أنت متأكد من إزالة هذا الأدمن؟');
-    if (!ok) return;
-    try {
-        await updateDoc(doc(db, 'admins', uid), { isAdmin: false, active: false, role: 'admin', updatedAt: new Date() });
-        loadUsers();
-    } catch (e) {
-        console.error('Failed to remove admin:', e);
-        alert('حدث خطأ أثناء إزالة الأدمن');
     }
 }
 

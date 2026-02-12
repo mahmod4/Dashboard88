@@ -348,22 +348,16 @@ async function loadCategoriesForSelect() {
     try {
         const categoriesSnapshot = await getDocs(collection(db, 'categories'));
         const categories = categoriesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        const fillSelect = (selectId) => {
-            const select = document.getElementById(selectId);
-            if (!select) return;
-            const existing = new Set(Array.from(select.querySelectorAll('option')).map(o => o.value));
+        
+        const select = document.getElementById('productCategory');
+        if (select) {
             categories.forEach(cat => {
-                if (existing.has(cat.id)) return;
                 const option = document.createElement('option');
                 option.value = cat.id;
                 option.textContent = cat.name;
                 select.appendChild(option);
             });
-        };
-
-        fillSelect('productCategory');
-        fillSelect('bulkCategory');
+        }
     } catch (error) {
         console.error('Error loading categories:', error);
     }
