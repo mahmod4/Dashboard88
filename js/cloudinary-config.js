@@ -13,8 +13,21 @@ const cloudinaryConfig = {
 // تعمل في بيئة Node.js أو build process فقط
 // لا تعمل مباشرة في المتصفح (لأن الرفع من المتصفح يستخدم Unsigned preset)
 function generateSignature(dataToSign) {
-    const crypto = require('crypto');
-    return crypto.createHash('sha1').update(dataToSign + cloudinaryConfig.apiSecret).digest('hex');
+    // في بيئة المتصفح، استخدم Web Crypto API
+    if (typeof window !== 'undefined' && window.crypto && window.crypto.subtle) {
+        // Web Crypto API للمتصفح
+        const encoder = new TextEncoder();
+        const data = encoder.encode(dataToSign + cloudinaryConfig.apiSecret);
+        
+        // ملاحظة: Web Crypto API يعمل بشكل غير متزامن
+        // هذه الدالة تحتاج تعديل لتكون async
+        console.warn('generateSignature: Web Crypto API requires async function');
+        return null;
+    } else {
+        // Node.js environment
+        const crypto = require('crypto');
+        return crypto.createHash('sha1').update(dataToSign + cloudinaryConfig.apiSecret).digest('hex');
+    }
 }
 
 // دالة لتحميل الصورة إلى Cloudinary
@@ -34,7 +47,7 @@ async function uploadImageToCloudinary(file, productId = null) {
 
         // تحويلات الصورة
         formData.append('transformation', JSON.stringify({
-            quality: 'auto:good',
+            quality: 'auto',
             fetch_format: 'auto',
             crop: 'limit',
             width: 800,
