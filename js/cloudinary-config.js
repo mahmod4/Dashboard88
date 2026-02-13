@@ -45,14 +45,8 @@ async function uploadImageToCloudinary(file, productId = null) {
             formData.append('folder', cloudinaryConfig.folder);
         }
 
-        // تحويلات الصورة
-        formData.append('transformation', JSON.stringify({
-            quality: 'auto',
-            fetch_format: 'auto',
-            crop: 'limit',
-            width: 800,
-            height: 800
-        }));
+        // ملاحظة: لا نستخدم transformation مع Unsigned upload preset
+        // Cloudinary سيضغط الصورة تلقائياً حسب إعدادات الـ preset
 
         const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloudName}/image/upload`, {
             method: 'POST',
