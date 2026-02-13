@@ -381,6 +381,187 @@ async function loadCategoriesForSelect() {
     }
 }
 
+// تعديل منتج: فتح النافذة مع ملء البيانات الحالية
+window.editProduct = async function(productId) {
+    try {
+        // جلب بيانات المنتج من Firestore
+        const productDoc = await getDoc(doc(db, 'products', productId));
+        if (!productDoc.exists()) {
+            alert('المنتج غير موجود');
+            return;
+        }
+        
+        const product = { id: productDoc.id, ...productDoc.data() };
+        
+        // فتح نافذة المنتج
+        await openProductModal();
+        
+        // ملء البيانات في النموذج
+        document.getElementById('modalTitle').textContent = 'تعديل المنتج';
+        document.getElementById('productId').value = product.id;
+        document.getElementById('productName').value = product.name || '';
+        document.getElementById('productDescription').value = product.description || '';
+        document.getElementById('productPrice').value = product.price || '';
+        document.getElementById('productDiscountPrice').value = product.discountPrice || '';
+        document.getElementById('productCategory').value = product.categoryId || '';
+        document.getElementById('productStock').value = product.stock || '';
+        document.getElementById('productWeight').value = product.weight || '';
+        document.getElementById('productSoldByWeight').value = product.soldByWeight ? 'true' : 'false';
+        document.getElementById('productAvailable').value = product.available ? 'true' : 'false';
+        
+        // عرض الصورة الحالية
+        if (product.image) {
+            const preview = document.getElementById('imagePreview');
+            if (preview) {
+                preview.src = product.image;
+                preview.classList.remove('hidden');
+            }
+        }
+        
+    } catch (error) {
+        console.error('Error loading product for edit:', error);
+        alert('حدث خطأ أثناء تحميل بيانات المنتج');
+    }
+}
+
+// فتح نافذة إضافة/تعديل المنتج
+window.openProductModal = async function() {
+    const modal = document.getElementById('productModal');
+    if (!modal) {
+        // إنشاء النافذة إذا لم تكن موجودة
+        document.body.insertAdjacentHTML('beforeend', `
+            <div id="productModal" class="modal">
+                <div class="modal-content">
+                    <span class="close" onclick="closeProductModal()">&times;</span>
+                    <h2 class="text-2xl font-bold mb-6" id="modalTitle">إضافة منتج جديد</h2>
+                    <form id="productForm" onsubmit="saveProduct(event)">
+                        <input type="hidden" id="productId">
+                        
+                        <div class="form-group">
+                            <label>اسم المنتج *</label>
+                            <input type="text" id="productName" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>الوصف</label>
+                            <textarea id="productDescription" rows="4"></textarea>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="form-group">
+                                <label>السعر (ج.م) *</label>
+                                <input type="number" id="productPrice" step="0.01" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label>السعر بعد الخصم (ج.م)</label>
+                                <input type="number" id="productDiscountPrice" step="0.01">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="form-group">
+                                <label>القسم</label>
+                                <select id="productCategory">
+                                    <option value="">اختر القسم</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>المخزون</label>
+                                <input type="number" id="productStock" min="0" value="0">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="form-group">
+                                <label>الوزن (كجم) - اختياري</label>
+                                <input type="number" id="productWeight" step="0.01" min="0" placeholder="مثال: 0.5">
+                                <small class="text-gray-500">اتركه فارغاً إذا كان المنتج يُبعد بالعدد</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label>بيع بالوزن؟</label>
+                                <select id="productSoldByWeight">
+                                    <option value="false">بالعدد</option>
+                                    <option value="true">بالوزن (كجم)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>الحالة</label>
+                            <select id="productAvailable">
+                                <option value="true">متوفر</option>
+                                <option value="false">غير متوفر</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>صورة المنتج</label>
+                            <input type="file" id="productImage" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" onchange="previewImage(event)">
+                            <small class="text-gray-500">الأنواع المدعومة: JPG, PNG, GIF, WebP (حد أقصى 5MB)</small>
+                            <div id="imageUploadProgress" class="hidden mt-2">
+                                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                    <div id="imageProgressBar" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+                                </div>
+                                <p id="imageProgressText" class="text-sm mt-1"></p>
+                            </div>
+                            <img id="imagePreview" class="mt-3 max-w-xs hidden rounded">
+                        </div>
+
+                        <div class="flex justify-end space-x-3 space-x-reverse mt-6">
+                            <button type="button" onclick="closeProductModal()" 
+                                    class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                                إلغاء
+                            </button>
+                            <button type="submit" class="btn-primary">
+                                <i class="fas fa-save ml-2"></i>حفظ
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `);
+    }
+    
+    // إعادة تعيين النموذج
+    document.getElementById('productForm').reset();
+    document.getElementById('modalTitle').textContent = 'إضافة منتج جديد';
+    document.getElementById('productId').value = '';
+    document.getElementById('imagePreview').classList.add('hidden');
+    
+    // تحميل الأقسام
+    await loadCategoriesForSelect();
+    
+    // عرض النافذة
+    document.getElementById('productModal').style.display = 'block';
+}
+
+// إغلاق نافذة المنتج
+window.closeProductModal = function() {
+    const modal = document.getElementById('productModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// معاينة الصورة قبل الرفع
+window.previewImage = function(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.getElementById('imagePreview');
+            if (preview) {
+                preview.src = e.target.result;
+                preview.classList.remove('hidden');
+            }
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
 // حذف منتج (مع حذف الصورة إن أمكن)
 window.deleteProduct = async function(productId) {
     if (!confirm('هل أنت متأكد من حذف هذا المنتج؟')) return;
