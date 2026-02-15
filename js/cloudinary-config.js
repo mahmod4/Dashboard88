@@ -56,11 +56,10 @@ async function uploadImageToCloudinary(file, productId = null) {
 
         // إضافة التوقيع للـ signed upload
         const timestamp = Math.floor(Date.now() / 1000);
-        const signatureData = `timestamp=${timestamp}&upload_preset=${cloudinaryConfig.uploadPreset}&folder=${productId ? cloudinaryConfig.folder + '/' + productId : cloudinaryConfig.folder}`;
+        const signatureData = `upload_preset=${cloudinaryConfig.uploadPreset}&folder=${productId ? cloudinaryConfig.folder + '/' + productId : cloudinaryConfig.folder}`;
         const signature = await generateSignature(signatureData);
         
         if (signature) {
-            formData.append('timestamp', timestamp);
             formData.append('signature', signature);
         }
 
@@ -122,6 +121,18 @@ async function uploadImageToCloudinary(file, productId = null) {
             throw new Error('مفتاح API غير صالح. يرجى التحقق من إعدادات Cloudinary.');
         } else if (error.message.includes('Not allowed')) {
             throw new Error('نوع الملف غير مسموح. يرجى استخدام الصور فقط.');
+        } else if (error.message.includes('Invalid Signature')) {
+            throw new Error('توقيع غير صالح. يرجى التحقق من إعدادات Cloudinary API Secret.');
+        } else if (error.message.includes('Missing required parameter')) {
+            throw new Error('معاملات مفقودة. يرجى التحقق من إعدادات Cloudinary.');
+        } else if (error.message.includes('Invalid upload preset')) {
+            throw new Error('إعدادات الرفع غير صالحة. يرجى التحقق من upload preset.');
+        } else if (error.message.includes('File size too large')) {
+            throw new Error('حجم الملف كبير جداً. الحد الأقصى هو 10 ميجابايت.');
+        } else if (error.message.includes('Unauthorized')) {
+            throw new Error('مفتاح API غير صالح. يرجى التحقق من إعدادات Cloudinary.');
+        } else if (error.message.includes('Not allowed')) {
+            throw new Error('نوع الملف غير مسموح. يرجى استخدام الصور فقط.');
         }
         
         throw error;
@@ -133,6 +144,7 @@ async function deleteImageFromCloudinary(publicId) {
     try {
         console.log('بدء حذف الصورة من Cloudinary:', publicId);
         
+        // إضافة التوقيع للـ signed delete
         const timestamp = Math.floor(Date.now() / 1000);
         const signatureData = `public_id=${publicId}&timestamp=${timestamp}`;
         const signature = await generateSignature(signatureData);
