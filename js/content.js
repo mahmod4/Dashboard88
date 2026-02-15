@@ -1,11 +1,12 @@
 import { doc, getDoc, updateDoc, setDoc } from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js';
-import { db, storage } from './firebase-config.js';
+import { uploadImageToCloudinary, deleteImageFromCloudinary, uploadImageWithUI } from './cloudinary-config.js';
+import { db } from './firebase-config.js';
 
 export async function loadContent() {
     const pageContent = document.getElementById('pageContent');
     
     try {
+        console.log('جاري تحميل صفحة إدارة المحتوى...');
         const content = await getContent();
         
         pageContent.innerHTML = `
@@ -17,16 +18,25 @@ export async function loadContent() {
                         <div class="form-group">
                             <label>صورة البانر</label>
                             <input type="file" id="bannerImage" accept="image/*" onchange="previewBannerImage(event)">
-                            <img id="bannerPreview" src="${content.bannerImage || ''}" 
-                                 class="mt-3 max-w-full rounded ${content.bannerImage ? '' : 'hidden'}">
+                            <div id="imagePreviewContainer" class="mt-3">
+                                <img id="bannerPreview" src="${content.bannerImage || ''}" 
+                                     class="max-w-full rounded ${content.bannerImage ? '' : 'hidden'}" 
+                                     style="max-height: 200px; object-fit: cover;">
+                                ${!content.bannerImage ? '<p class="text-gray-500 text-sm">لا توجد صورة بانر حالية</p>' : ''}
+                            </div>
+                            <small class="text-gray-500">الحجم الأقصى: 5 ميجابايت | الصيغ المسموحة: JPG, PNG, GIF</small>
                         </div>
                         <div class="form-group">
                             <label>رابط البانر (اختياري)</label>
-                            <input type="url" id="bannerLink" value="${content.bannerLink || ''}">
+                            <input type="url" id="bannerLink" value="${content.bannerLink || ''}" 
+                                   placeholder="https://example.com">
+                            <small class="text-gray-500">سيتم توجيه المستخدم لهذا الرابط عند النقر على البانر</small>
                         </div>
                         <div class="form-group">
                             <label>النص على البانر (اختياري)</label>
-                            <input type="text" id="bannerText" value="${content.bannerText || ''}">
+                            <input type="text" id="bannerText" value="${content.bannerText || ''}" 
+                                   placeholder="نص يظهر على البانر">
+                            <small class="text-gray-500">نص قصير يظهر على البانر</small>
                         </div>
                         <button type="submit" class="btn-primary w-full">
                             <i class="fas fa-save ml-2"></i>حفظ البانر
@@ -47,6 +57,17 @@ export async function loadContent() {
                         <button onclick="openPageModal('about')" class="btn-primary w-full text-right">
                             <i class="fas fa-info-circle ml-2"></i>من نحن
                         </button>
+                    </div>
+                    
+                    <div class="mt-6 p-4 bg-blue-50 rounded-lg">
+                        <h3 class="font-semibold text-blue-800 mb-2">
+                            <i class="fas fa-info-circle ml-2"></i>معلومات هامة
+                        </h3>
+                        <ul class="text-sm text-blue-700 space-y-1">
+                            <li>• يمكنك استخدام HTML في محتوى الصفحات</li>
+                            <li>• سيتم حفظ التغييرات تلقائياً</li>
+                            <li>• الصور يتم رفعها تلقائياً</li>
+                        </ul>
                     </div>
                 </div>
             </div>
@@ -80,9 +101,39 @@ export async function loadContent() {
                 </div>
             </div>
         `;
+        
+        console.log('تم تحميل صفحة إدارة المحتوى بنجاح');
+        
     } catch (error) {
         console.error('Error loading content:', error);
-        pageContent.innerHTML = '<div class="card"><p class="text-red-600">حدث خطأ أثناء تحميل المحتوى</p></div>';
+        
+        const errorCode = error.code || 'UNKNOWN';
+        const errorMessage = error.message || 'خطأ غير معروف';
+        
+        pageContent.innerHTML = `
+            <div class="card">
+                <div class="text-center py-8">
+                    <i class="fas fa-exclamation-triangle text-6xl text-red-300 mb-4"></i>
+                    <h3 class="text-xl font-semibold text-red-600 mb-2">حدث خطأ أثناء تحميل صفحة المحتوى</h3>
+                    <p class="text-gray-600 mb-4">يرجى التحقق من الاتصال بقاعدة البيانات</p>
+                    
+                    <div class="bg-gray-50 rounded-lg p-4 text-right mb-4">
+                        <p class="text-sm font-semibold mb-2">تفاصيل الخطأ:</p>
+                        <p class="text-xs text-gray-600">الكود: ${errorCode}</p>
+                        <p class="text-xs text-gray-600">الرسالة: ${errorMessage}</p>
+                    </div>
+                    
+                    <div class="flex justify-center space-x-3 space-x-reverse">
+                        <button onclick="loadContent()" class="btn-primary">
+                            <i class="fas fa-redo ml-2"></i>إعادة المحاولة
+                        </button>
+                        <button onclick="window.location.reload()" class="btn-secondary">
+                            <i class="fas fa-sync ml-2"></i>تحديث الصفحة
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
     }
 }
 
@@ -91,90 +142,166 @@ async function getContent() {
         const docRef = doc(db, 'content', 'main');
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
+            console.log('تم جلب المحتوى بنجاح:', docSnap.data());
             return docSnap.data();
+        } else {
+            console.log('مستند المحتوى غير موجود، إنشاء محتوى افتراضي');
+            // إنشاء محتوى افتراضي إذا لم يوجد
+            const defaultContent = {
+                bannerImage: '',
+                bannerPublicId: '',
+                bannerLink: '',
+                bannerText: '',
+                privacyPolicy: { title: 'سياسة الخصوصية', content: '' },
+                termsAndConditions: { title: 'الشروط والأحكام', content: '' },
+                aboutUs: { title: 'من نحن', content: '' },
+                storageProvider: 'cloudinary', // تحديد مزود التخزين الافتراضي
+                createdAt: new Date()
+            };
+            await setDoc(docRef, defaultContent);
+            return defaultContent;
         }
     } catch (error) {
         console.error('Error getting content:', error);
+        // إرجاع محتوى افتراضي في حالة الخطأ
+        return {
+            bannerImage: '',
+            bannerPublicId: '',
+            bannerLink: '',
+            bannerText: '',
+            privacyPolicy: { title: 'سياسة الخصوصية', content: '' },
+            termsAndConditions: { title: 'الشروط والأحكام', content: '' },
+            aboutUs: { title: 'من نحن', content: '' },
+            storageProvider: 'cloudinary'
+        };
     }
-    return {
-        bannerImage: '',
-        bannerLink: '',
-        bannerText: '',
-        privacyPolicy: { title: 'سياسة الخصوصية', content: '' },
-        termsAndConditions: { title: 'الشروط والأحكام', content: '' },
-        aboutUs: { title: 'من نحن', content: '' }
-    };
 }
 
 window.previewBannerImage = function(event) {
     const file = event.target.files[0];
+    const previewContainer = document.getElementById('imagePreviewContainer');
+    const preview = document.getElementById('bannerPreview');
+    
     if (file) {
+        // التحقق من حجم الملف
+        if (file.size > 5 * 1024 * 1024) {
+            alert('حجم الصورة كبير جداً. الحد الأقصى هو 5 ميجابايت');
+            event.target.value = ''; // مسح الملف
+            return;
+        }
+        
+        // التحقق من نوع الملف
+        if (!file.type.startsWith('image/')) {
+            alert('يرجى اختيار ملف صورة صالح');
+            event.target.value = ''; // مسح الملف
+            return;
+        }
+        
         const reader = new FileReader();
         reader.onload = (e) => {
-            const preview = document.getElementById('bannerPreview');
             preview.src = e.target.result;
             preview.classList.remove('hidden');
+            console.log('تم عرض الصورة المختارة بنجاح');
+        };
+        reader.onerror = () => {
+            alert('حدث خطأ أثناء قراءة الصورة');
+            event.target.value = ''; // مسح الملف
         };
         reader.readAsDataURL(file);
+    } else {
+        // إذا تم مسح الملف، إعادة الصورة الأصلية
+        const content = getContent().then(currentContent => {
+            if (currentContent.bannerImage) {
+                preview.src = currentContent.bannerImage;
+                preview.classList.remove('hidden');
+            } else {
+                preview.classList.add('hidden');
+            }
+        });
     }
 }
 
 window.saveBanner = async function(event) {
     event.preventDefault();
     
-    const bannerLink = document.getElementById('bannerLink').value;
-    const bannerText = document.getElementById('bannerText').value;
-    const imageFile = document.getElementById('bannerImage').files[0];
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    
+    // إظهار مؤشر التحميل
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin ml-2"></i>جاري الحفظ...';
+    submitBtn.disabled = true;
     
     try {
-        let bannerImage = '';
+        const bannerLink = document.getElementById('bannerLink').value;
+        const bannerText = document.getElementById('bannerText').value;
+        const imageFile = document.getElementById('bannerImage').files[0];
         
-        // Get current banner image
+        console.log('بدء حفظ البانر:', { bannerLink, bannerText, hasImage: !!imageFile });
+        
+        let bannerImage = '';
+        let bannerPublicId = '';
+        
+        // Get current banner data
         const content = await getContent();
         bannerImage = content.bannerImage || '';
+        bannerPublicId = content.bannerPublicId || '';
         
-        // Upload new image if selected
+        // Upload new image to Cloudinary if selected
         if (imageFile) {
-            const imagePath = `banners/${Date.now()}_${imageFile.name}`;
-            const imageRef = ref(storage, imagePath);
+            console.log('رفع صورة جديدة للبانر إلى Cloudinary...');
             
-            // Delete old image if exists
-            if (content.bannerImagePath) {
+            // Delete old image from Cloudinary if exists
+            if (bannerPublicId) {
                 try {
-                    await deleteObject(ref(storage, content.bannerImagePath));
-                } catch (error) {
-                    console.error('Error deleting old banner:', error);
+                    console.log('حذف الصورة القديمة من Cloudinary:', bannerPublicId);
+                    await deleteImageFromCloudinary(bannerPublicId);
+                } catch (deleteError) {
+                    console.warn('خطأ في حذف الصورة القديمة من Cloudinary:', deleteError);
+                    // لا نوقف العملية إذا فشل الحذف
                 }
             }
             
-            await uploadBytes(imageRef, imageFile);
-            bannerImage = await getDownloadURL(imageRef);
+            // Upload new image to Cloudinary
+            console.log('رفع الصورة الجديدة إلى Cloudinary...');
+            const uploadResult = await uploadImageToCloudinary(imageFile, 'banners');
+            bannerImage = uploadResult.url;
+            bannerPublicId = uploadResult.publicId;
             
-            const bannerData = {
-                bannerImage,
-                bannerImagePath: imagePath,
-                bannerLink: bannerLink || null,
-                bannerText: bannerText || null,
-                updatedAt: new Date()
-            };
-            
-            await setDoc(doc(db, 'content', 'main'), bannerData, { merge: true });
-        } else {
-            // Just update link and text
-            const bannerData = {
-                bannerLink: bannerLink || null,
-                bannerText: bannerText || null,
-                updatedAt: new Date()
-            };
-            
-            await setDoc(doc(db, 'content', 'main'), bannerData, { merge: true });
+            console.log('تم رفع الصورة إلى Cloudinary بنجاح:', { url: bannerImage, publicId: bannerPublicId });
         }
         
-        alert('تم حفظ البانر بنجاح');
+        // Save banner data to Firestore
+        const bannerData = {
+            bannerImage,
+            bannerPublicId,
+            bannerLink: bannerLink || null,
+            bannerText: bannerText || null,
+            updatedAt: new Date(),
+            storageProvider: 'cloudinary' // تحديد مزود التخزين
+        };
+        
+        console.log('حفظ بيانات البانر في Firestore:', bannerData);
+        await setDoc(doc(db, 'content', 'main'), bannerData, { merge: true });
+        
+        alert('تم حفظ البانر بنجاح (تم الرفع إلى Cloudinary)');
         loadContent();
+        
     } catch (error) {
         console.error('Error saving banner:', error);
-        alert('حدث خطأ أثناء حفظ البانر');
+        
+        // رسالة خطأ مفصلة
+        let errorMessage = 'حدث خطأ أثناء حفظ البانر';
+        if (error.message && error.message.includes('Cloudinary')) {
+            errorMessage = 'خطأ في رفع الصورة إلى Cloudinary: ' + error.message;
+        } else if (error.message) {
+            errorMessage = error.message;
+        }
+        
+        alert(errorMessage);
+    } finally {
+        // استعادة زر الحفظ
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
     }
 }
 
@@ -240,4 +367,7 @@ window.savePageContent = async function(event) {
         alert('حدث خطأ أثناء حفظ المحتوى');
     }
 }
+
+// تصدير الدوال للاستخدام في onclick
+window.loadContent = loadContent;
 

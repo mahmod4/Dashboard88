@@ -1,6 +1,6 @@
 import { doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js';
-import { ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js';
-import { db, storage } from './firebase-config.js';
+import { uploadImageToCloudinary, deleteImageFromCloudinary } from './cloudinary-config.js';
+import { db } from './firebase-config.js';
 
 export async function loadSettings() {
     const pageContent = document.getElementById('pageContent');
@@ -248,20 +248,32 @@ async function getSettings() {
     } catch (error) {
         console.error('Error getting settings:', error);
     }
-    return {};
-}
-
-window.previewLogo = function(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const preview = document.getElementById('logoPreview');
-            preview.src = e.target.result;
-            preview.classList.remove('hidden');
-        };
-        reader.readAsDataURL(file);
-    }
+    return {
+        storeName: '',
+        storeEmail: '',
+        storePhone: '',
+        storeAddress: '',
+        storeDescription: '',
+        storeKeywords: '',
+        googleAnalyticsId: '',
+        storeLogo: '',
+        logoPublicId: '',
+        storageProvider: 'cloudinary', // تحديد مزود التخزين الافتراضي
+        shippingBaseCost: 0,
+        shippingFreeThreshold: 0,
+        shippingDays: 3,
+        weightMin: 0.125,
+        weightMax: 1,
+        weightIncrement: 0.125,
+        weightOptions: ['0.125', '0.25', '0.5', '0.75', '1'],
+        paymentCardEnabled: false,
+        paymentApiKey: '',
+        paymentCashOnDeliveryEnabled: true,
+        socialFacebook: '',
+        socialTwitter: '',
+        socialInstagram: '',
+        socialWhatsapp: ''
+    };
 }
 
 window.saveGeneralSettings = async function(event) {
@@ -278,14 +290,28 @@ window.saveGeneralSettings = async function(event) {
     
     try {
         let storeLogo = '';
+        let logoPublicId = '';
         const currentSettings = await getSettings();
         storeLogo = currentSettings.storeLogo || '';
+        logoPublicId = currentSettings.logoPublicId || '';
         
         if (logoFile) {
-            const logoPath = `logos/${Date.now()}_${logoFile.name}`;
-            const logoRef = ref(storage, logoPath);
-            await uploadBytes(logoRef, logoFile);
-            storeLogo = await getDownloadURL(logoRef);
+            // Delete old logo from Cloudinary if exists
+            if (logoPublicId) {
+                try {
+                    await deleteImageFromCloudinary(logoPublicId);
+                    console.log('تم حذف الشعار القديم من Cloudinary');
+                } catch (error) {
+                    console.warn('خطأ في حذف الشعار القديم:', error);
+                }
+            }
+            
+            // Upload new logo to Cloudinary
+            const uploadResult = await uploadImageToCloudinary(logoFile, 'logos');
+            storeLogo = uploadResult.url;
+            logoPublicId = uploadResult.publicId;
+            
+            console.log('تم رفع الشعار الجديد إلى Cloudinary بنجاح');
         }
         
         const settingsData = {
@@ -297,11 +323,14 @@ window.saveGeneralSettings = async function(event) {
             storeKeywords,
             googleAnalyticsId,
             storeLogo,
+            logoPublicId,
+            storageProvider: 'cloudinary', // تحديد مزود التخزين
             updatedAt: new Date()
         };
         
         await setDoc(doc(db, 'settings', 'general'), settingsData, { merge: true });
-        alert('تم حفظ الإعدادات العامة بنجاح');
+        alert('تم حفظ الإعدادات العامة بنجاح (تم الرفع إلى Cloudinary)');
+        loadSettings();
     } catch (error) {
         console.error('Error saving general settings:', error);
         alert('حدث خطأ أثناء حفظ الإعدادات');
