@@ -3,7 +3,7 @@
 const cloudinaryConfig = {
     cloudName: 'ddm0j229o', // Cloud name
     apiKey: '915513453848396', // API Key
-    apiSecret: 'gwwRDcbDIKPdu1-f6jSyLsCu2yk', // API Secret
+    // apiSecret: 'gwwRDcbDIKPdu1-f6jSyLsCu2yk', // API Secret (غير مطلوب للـ unsigned upload)
     uploadPreset: 'my-store', // Upload preset الموجود في الحساب (Unsigned)
     folder: 'products' // مجلد المنتجات
 };
@@ -33,6 +33,8 @@ function generateSignature(dataToSign) {
 // دالة لتحميل الصورة إلى Cloudinary
 async function uploadImageToCloudinary(file, productId = null) {
     try {
+        console.log('بدء رفع الصورة إلى Cloudinary:', file.name, 'الملف:', file.size, 'bytes');
+        
         const formData = new FormData();
         formData.append('file', file);
         formData.append('api_key', cloudinaryConfig.apiKey);
@@ -45,19 +47,39 @@ async function uploadImageToCloudinary(file, productId = null) {
             formData.append('folder', cloudinaryConfig.folder);
         }
 
-        // ملاحظة: لا نستخدم transformation مع Unsigned upload preset
-        // Cloudinary سيضغط الصورة تلقائياً حسب إعدادات الـ preset
+        console.log('إعدادات الرفع:', {
+            cloudName: cloudinaryConfig.cloudName,
+            apiKey: cloudinaryConfig.apiKey,
+            uploadPreset: cloudinaryConfig.uploadPreset,
+            folder: productId ? `${cloudinaryConfig.folder}/${productId}` : cloudinaryConfig.folder
+        });
 
         const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloudName}/image/upload`, {
             method: 'POST',
             body: formData
         });
 
+        console.log('استجابة Cloudinary:', response.status, response.statusText);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Cloudinary error response:', errorText);
+            throw new Error(`فشل الرفع: ${response.status} - ${errorText}`);
+        }
+
         const result = await response.json();
         
         if (result.error) {
-            throw new Error(result.error.message);
+            console.error('Cloudinary API error:', result.error);
+            throw new Error(`خطأ في Cloudinary: ${result.error.message || 'خطأ غير معروف'}`);
         }
+
+        console.log('تم رفع الصورة بنجاح:', {
+            publicId: result.public_id,
+            url: result.secure_url,
+            size: result.bytes,
+            format: result.format
+        });
 
         return {
             url: result.secure_url,
@@ -69,6 +91,20 @@ async function uploadImageToCloudinary(file, productId = null) {
 
     } catch (error) {
         console.error('Error uploading image to Cloudinary:', error);
+        
+        // رسائل خطأ مفصلة
+        if (error.message.includes('Missing required parameter')) {
+            throw new Error('معاملات مفقودة. يرجى التحقق من إعدادات Cloudinary.');
+        } else if (error.message.includes('Invalid upload preset')) {
+            throw new Error('إعدادات الرفع غير صالحة. يرجى التحقق من upload preset.');
+        } else if (error.message.includes('File size too large')) {
+            throw new Error('حجم الملف كبير جداً. الحد الأقصى هو 10 ميجابايت.');
+        } else if (error.message.includes('Unauthorized')) {
+            throw new Error('مفتاح API غير صالح. يرجى التحقق من إعدادات Cloudinary.');
+        } else if (error.message.includes('Not allowed')) {
+            throw new Error('نوع الملف غير مسموح. يرجى استخدام الصور فقط.');
+        }
+        
         throw error;
     }
 }
@@ -76,30 +112,49 @@ async function uploadImageToCloudinary(file, productId = null) {
 // دالة لحذف الصورة من Cloudinary
 async function deleteImageFromCloudinary(publicId) {
     try {
-        const timestamp = Math.floor(Date.now() / 1000);
-        const signature = generateSignature(`public_id=${publicId}&timestamp=${timestamp}`);
-
+        console.log('بدء حذف الصورة من Cloudinary:', publicId);
+        
+        // استخدام unsigned delete API
         const formData = new FormData();
         formData.append('public_id', publicId);
         formData.append('api_key', cloudinaryConfig.apiKey);
-        formData.append('timestamp', timestamp);
-        formData.append('signature', signature);
+        formData.append('upload_preset', cloudinaryConfig.uploadPreset);
 
         const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloudName}/image/destroy`, {
             method: 'POST',
             body: formData
         });
 
+        console.log('استجابة حذف Cloudinary:', response.status, response.statusText);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Cloudinary delete error response:', errorText);
+            throw new Error(`فشل الحذف: ${response.status} - ${errorText}`);
+        }
+
         const result = await response.json();
         
         if (result.error) {
-            throw new Error(result.error.message);
+            console.error('Cloudinary delete API error:', result.error);
+            throw new Error(`خطأ في حذف Cloudinary: ${result.error.message || 'خطأ غير معروف'}`);
         }
 
+        console.log('تم حذف الصورة بنجاح:', result.result);
         return result.result === 'ok';
 
     } catch (error) {
         console.error('Error deleting image from Cloudinary:', error);
+        
+        // رسائل خطأ مفصلة
+        if (error.message.includes('Missing required parameter')) {
+            throw new Error('معاملات مفقودة. يرجى التحقق من معرف الصورة.');
+        } else if (error.message.includes('Unauthorized')) {
+            throw new Error('مفتاح API غير صالح. يرجى التحقق من إعدادات Cloudinary.');
+        } else if (error.message.includes('Not found')) {
+            throw new Error('الصورة غير موجودة أو تم حذفها بالفعل.');
+        }
+        
         throw error;
     }
 }
@@ -116,15 +171,21 @@ function previewImage(file, callback) {
 // دالة للتحقق من نوع الملف
 function validateImageFile(file) {
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    const maxSize = 10 * 1024 * 1024; // 10MB (زيادة الحد الأقصى)
 
     if (!validTypes.includes(file.type)) {
         throw new Error('نوع الملف غير مدعوم. يرجى استخدام JPG, PNG, GIF, أو WebP');
     }
 
     if (file.size > maxSize) {
-        throw new Error('حجم الملف كبير جداً. الحد الأقصى هو 5MB');
+        throw new Error('حجم الملف كبير جداً. الحد الأقصى هو 10MB');
     }
+
+    console.log('الملف تم التحقق بنجاح:', {
+        name: file.name,
+        type: file.type,
+        size: (file.size / 1024 / 1024).toFixed(2) + 'MB'
+    });
 
     return true;
 }
@@ -241,14 +302,14 @@ async function uploadImageWithUI(fileInput, productId = null, onProgress = null)
 
         // بدء التحميل
         if (onProgress) {
-            onProgress(0, 'جاري تحميل الصورة...');
+            onProgress(0, 'جاري تحميل الصورة إلى Cloudinary...');
         }
 
         // تحميل الصورة
         const result = await uploadImageToCloudinary(file, productId);
 
         if (onProgress) {
-            onProgress(100, 'تم تحميل الصورة بنجاح');
+            onProgress(100, 'تم تحميل الصورة بنجاح إلى Cloudinary');
         }
 
         return result;

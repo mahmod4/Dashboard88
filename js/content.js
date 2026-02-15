@@ -183,9 +183,9 @@ window.previewBannerImage = function(event) {
     const preview = document.getElementById('bannerPreview');
     
     if (file) {
-        // التحقق من حجم الملف
-        if (file.size > 5 * 1024 * 1024) {
-            alert('حجم الصورة كبير جداً. الحد الأقصى هو 5 ميجابايت');
+        // التحقق من حجم الملف (10MB كحد أقصى للبانر)
+        if (file.size > 10 * 1024 * 1024) {
+            alert('حجم الصورة كبير جداً. الحد الأقصى هو 10 ميجابايت');
             event.target.value = ''; // مسح الملف
             return;
         }
@@ -210,7 +210,7 @@ window.previewBannerImage = function(event) {
         reader.readAsDataURL(file);
     } else {
         // إذا تم مسح الملف، إعادة الصورة الأصلية
-        const content = getContent().then(currentContent => {
+        getContent().then(currentContent => {
             if (currentContent.bannerImage) {
                 preview.src = currentContent.bannerImage;
                 preview.classList.remove('hidden');
@@ -293,6 +293,16 @@ window.saveBanner = async function(event) {
         let errorMessage = 'حدث خطأ أثناء حفظ البانر';
         if (error.message && error.message.includes('Cloudinary')) {
             errorMessage = 'خطأ في رفع الصورة إلى Cloudinary: ' + error.message;
+        } else if (error.message && error.message.includes('Missing required parameter')) {
+            errorMessage = 'معاملات مفقودة. يرجى التحقق من إعدادات Cloudinary.';
+        } else if (error.message && error.message.includes('Invalid upload preset')) {
+            errorMessage = 'إعدادات الرفع غير صالحة. يرجى التحقق من upload preset في Cloudinary.';
+        } else if (error.message && error.message.includes('File size too large')) {
+            errorMessage = 'حجم الصورة كبير جداً. الحد الأقصى هو 10 ميجابايت.';
+        } else if (error.message && error.message.includes('Unauthorized')) {
+            errorMessage = 'مفتاح API غير صالح. يرجى التحقق من إعدادات Cloudinary.';
+        } else if (error.message && error.message.includes('Not allowed')) {
+            errorMessage = 'نوع الملف غير مسموح. يرجى استخدام الصور فقط.';
         } else if (error.message) {
             errorMessage = error.message;
         }
