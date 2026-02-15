@@ -18,117 +18,114 @@ export async function loadOffers() {
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                ${offers.map(offer => `
-                    <div class="card ${offer.active ? '' : 'opacity-60'}">
-                        <div class="flex justify-between items-start mb-4">
-                            <h3 class="text-xl font-bold">${offer.name}</h3>
-                            <span class="badge badge-${offer.active ? 'success' : 'danger'}">
-                                ${offer.active ? 'نشط' : 'منتهي'}
-                            </span>
-                        </div>
-                        <p class="text-gray-600 mb-4">${offer.description || ''}</p>
-                        <div class="space-y-2 mb-4">
-                            <p><strong>نوع الخصم:</strong> ${offer.discountType === 'percentage' ? 'نسبة مئوية' : 'مبلغ ثابت'}</p>
-                            <p><strong>قيمة الخصم:</strong> ${offer.discountValue}${offer.discountType === 'percentage' ? '%' : ' ج.م'}</p>
-                            <p><strong>من:</strong> ${offer.startDate?.toDate().toLocaleDateString('ar-SA') || 'غير محدد'}</p>
-                            <p><strong>إلى:</strong> ${offer.endDate?.toDate().toLocaleDateString('ar-SA') || 'غير محدد'}</p>
-                            ${offer.products && offer.products.length > 0 ? 
-                                `<p><strong>المنتجات:</strong> ${offer.products.length} منتج</p>` : 
-                                '<p><strong>المنتجات:</strong> جميع المنتجات</p>'
-                            }
-                            ${offer.couponCode ? `<p><strong>كود الكوبون:</strong> <code class="bg-gray-100 px-2 py-1 rounded">${offer.couponCode}</code></p>` : ''}
-                        </div>
-                        <div class="flex space-x-2 space-x-reverse mt-4">
-                            <button onclick="editOffer('${offer.id}')" class="btn-primary text-sm py-1 px-3 flex-1">
-                                <i class="fas fa-edit"></i> تعديل
-                            </button>
-                            <button onclick="deleteOffer('${offer.id}')" class="btn-danger text-sm py-1 px-3 flex-1">
-                                <i class="fas fa-trash"></i> حذف
-                            </button>
-                        </div>
+            ${offers.length === 0 ? `
+                <div class="card">
+                    <div class="text-center py-12">
+                        <i class="fas fa-percent text-6xl text-gray-300 mb-4"></i>
+                        <h3 class="text-xl font-semibold text-gray-600 mb-2">لا توجد عروض حالياً</h3>
+                        <p class="text-gray-500 mb-6">ابدأ بإنشاء أول عرض لجذب المزيد من العملاء</p>
+                        <button onclick="openOfferModal()" class="btn-primary">
+                            <i class="fas fa-plus ml-2"></i>إنشاء أول عرض
+                        </button>
                     </div>
-                `).join('')}
-            </div>
-
-            <!-- Offer Modal -->
-            <div id="offerModal" class="modal">
-                <div class="modal-content">
-                    <span class="close" onclick="closeOfferModal()">&times;</span>
-                    <h2 class="text-2xl font-bold mb-6" id="offerModalTitle">إنشاء عرض جديد</h2>
-                    <form id="offerForm" onsubmit="saveOffer(event)">
-                        <input type="hidden" id="offerId">
-                        
-                        <div class="form-group">
-                            <label>اسم العرض *</label>
-                            <input type="text" id="offerName" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label>الوصف</label>
-                            <textarea id="offerDescription" rows="3"></textarea>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="form-group">
-                                <label>نوع الخصم *</label>
-                                <select id="offerDiscountType" required onchange="toggleDiscountType()">
-                                    <option value="percentage">نسبة مئوية (%)</option>
-                                    <option value="fixed">مبلغ ثابت (ج.م)</option>
-                                </select>
-                            </div>
-
-                            <div class="form-group">
-                                <label>قيمة الخصم *</label>
-                                <input type="number" id="offerDiscountValue" step="0.01" required>
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="form-group">
-                                <label>تاريخ البداية *</label>
-                                <input type="datetime-local" id="offerStartDate" required>
-                            </div>
-
-                            <div class="form-group">
-                                <label>تاريخ النهاية *</label>
-                                <input type="datetime-local" id="offerEndDate" required>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label>كود الكوبون (اختياري)</label>
-                            <input type="text" id="offerCouponCode" placeholder="مثال: SUMMER2024">
-                        </div>
-
-                        <div class="form-group">
-                            <label>المنتجات</label>
-                            <select id="offerProducts" multiple class="h-32">
-                                <option value="">جميع المنتجات</option>
-                            </select>
-                            <small class="text-gray-500">اضغط Ctrl (أو Cmd على Mac) لاختيار عدة منتجات</small>
-                        </div>
-
-                        <div class="form-group">
-                            <label>الحالة</label>
-                            <select id="offerActive">
-                                <option value="true">نشط</option>
-                                <option value="false">غير نشط</option>
-                            </select>
-                        </div>
-
-                        <div class="flex justify-end space-x-3 space-x-reverse mt-6">
-                            <button type="button" onclick="closeOfferModal()" 
-                                    class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-                                إلغاء
-                            </button>
-                            <button type="submit" class="btn-primary">
-                                <i class="fas fa-save ml-2"></i>حفظ
-                            </button>
-                        </div>
-                    </form>
                 </div>
-            </div>
+            ` : `
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    ${offers.map(offer => `
+                        <div class="card offer-card ${offer.active ? 'has-discount' : 'opacity-60'}" style="position: relative;">
+                            ${offer.active ? '<div class="discount-badge">خصم خاص</div>' : ''}
+                            
+                            ${offer.image ? `
+                                <div class="mb-4">
+                                    <img src="${offer.image}" alt="${offer.name}" 
+                                         class="w-full h-48 object-cover rounded-lg"
+                                         onerror="this.src='https://via.placeholder.com/300x200/e0e0e0/666666?text=No+Image'">
+                                </div>
+                            ` : ''}
+                            
+                            <div class="flex justify-between items-start mb-4">
+                                <h3 class="text-xl font-bold text-gray-800">${offer.name}</h3>
+                                <span class="badge badge-${offer.active ? 'success' : 'danger'}">
+                                    ${offer.active ? 'نشط' : 'منتهي'}
+                                </span>
+                            </div>
+                            
+                            ${offer.description ? `
+                                <p class="text-gray-600 mb-4 line-clamp-2">${offer.description}</p>
+                            ` : ''}
+                            
+                            <div class="bg-gradient-to-r from-orange-50 to-red-50 p-4 rounded-lg mb-4">
+                                <div class="offer-price">
+                                    ${offer.discountType === 'percentage' ? 
+                                        `<span class="text-2xl font-bold text-orange-600">${offer.discountValue}%</span>
+                                         <span class="text-gray-500">خصم</span>` :
+                                        `<span class="text-2xl font-bold text-orange-600">${offer.discountValue}</span>
+                                         <span class="text-gray-500">ج.م خصم</span>`
+                                    }
+                                </div>
+                            </div>
+                            
+                            <div class="space-y-2 mb-4 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-500">نوع الخصم:</span>
+                                    <span class="font-medium">
+                                        ${offer.discountType === 'percentage' ? 
+                                            '<span class="text-blue-600">نسبة مئوية</span>' : 
+                                            '<span class="text-green-600">مبلغ ثابت</span>'
+                                        }
+                                    </span>
+                                </div>
+                                
+                                <div class="flex justify-between">
+                                    <span class="text-gray-500">قيمة الخصم:</span>
+                                    <span class="font-bold text-orange-600">
+                                        ${offer.discountValue}${offer.discountType === 'percentage' ? '%' : ' ج.م'}
+                                    </span>
+                                </div>
+                                
+                                <div class="flex justify-between">
+                                    <span class="text-gray-500">الفترة:</span>
+                                    <span class="font-medium">
+                                        ${offer.startDate?.toDate().toLocaleDateString('ar-SA') || 'غير محدد'} 
+                                        - 
+                                        ${offer.endDate?.toDate().toLocaleDateString('ar-SA') || 'غير محدد'}
+                                    </span>
+                                </div>
+                                
+                                <div class="flex justify-between">
+                                    <span class="text-gray-500">المنتجات:</span>
+                                    <span class="font-medium">
+                                        ${offer.products && offer.products.length > 0 ? 
+                                            `<span class="text-blue-600">${offer.products.length} منتج</span>` : 
+                                            '<span class="text-green-600">جميع المنتجات</span>'
+                                        }
+                                    </span>
+                                </div>
+                                
+                                ${offer.couponCode ? `
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-500">كود الكوبون:</span>
+                                        <code class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-sm font-mono">
+                                            ${offer.couponCode}
+                                        </code>
+                                    </div>
+                                ` : ''}
+                            </div>
+                            
+                            <div class="flex space-x-2 space-x-reverse mt-4">
+                                <button onclick="editOffer('${offer.id}')" 
+                                        class="btn-primary text-sm py-2 px-4 flex-1 hover:scale-105 transition-transform">
+                                    <i class="fas fa-edit ml-1"></i> تعديل
+                                </button>
+                                <button onclick="deleteOffer('${offer.id}')" 
+                                        class="btn-danger text-sm py-2 px-4 flex-1 hover:scale-105 transition-transform">
+                                    <i class="fas fa-trash ml-1"></i> حذف
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `}
         `;
 
         // Load products for select
@@ -136,6 +133,95 @@ export async function loadOffers() {
     } catch (error) {
         console.error('Error loading offers:', error);
         pageContent.innerHTML = '<div class="card"><p class="text-red-600">حدث خطأ أثناء تحميل العروض</p></div>';
+    }
+}
+
+// Add modal HTML to the page
+function addOfferModal() {
+    const modalHTML = `
+        <!-- Offer Modal -->
+        <div id="offerModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeOfferModal()">&times;</span>
+                <h2 class="text-2xl font-bold mb-6" id="offerModalTitle">إنشاء عرض جديد</h2>
+                <form id="offerForm" onsubmit="saveOffer(event)">
+                    <input type="hidden" id="offerId">
+                    
+                    <div class="form-group">
+                        <label>اسم العرض *</label>
+                        <input type="text" id="offerName" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>الوصف</label>
+                        <textarea id="offerDescription" rows="3"></textarea>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="form-group">
+                            <label>نوع الخصم *</label>
+                            <select id="offerDiscountType" required onchange="toggleDiscountType()">
+                                <option value="percentage">نسبة مئوية (%)</option>
+                                <option value="fixed">مبلغ ثابت (ج.م)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>قيمة الخصم *</label>
+                            <input type="number" id="offerDiscountValue" step="0.01" required>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="form-group">
+                            <label>تاريخ البداية *</label>
+                            <input type="datetime-local" id="offerStartDate" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>تاريخ النهاية *</label>
+                            <input type="datetime-local" id="offerEndDate" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>كود الكوبون (اختياري)</label>
+                        <input type="text" id="offerCouponCode" placeholder="مثال: SUMMER2024">
+                    </div>
+
+                    <div class="form-group">
+                        <label>المنتجات</label>
+                        <select id="offerProducts" multiple class="h-32">
+                            <option value="">جميع المنتجات</option>
+                        </select>
+                        <small class="text-gray-500">اضغط Ctrl (أو Cmd على Mac) لاختيار عدة منتجات</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>الحالة</label>
+                        <select id="offerActive">
+                            <option value="true">نشط</option>
+                            <option value="false">غير نشط</option>
+                        </select>
+                    </div>
+
+                    <div class="flex justify-end space-x-3 space-x-reverse mt-6">
+                        <button type="button" onclick="closeOfferModal()" 
+                                class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                            إلغاء
+                        </button>
+                        <button type="submit" class="btn-primary">
+                            <i class="fas fa-save ml-2"></i>حفظ
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to body if not exists
+    if (!document.getElementById('offerModal')) {
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
     }
 }
 
@@ -162,6 +248,7 @@ async function loadProductsForSelect(products) {
 }
 
 window.openOfferModal = function() {
+    addOfferModal(); // Ensure modal exists
     document.getElementById('offerModal').style.display = 'block';
     document.getElementById('offerModalTitle').textContent = 'إنشاء عرض جديد';
     document.getElementById('offerForm').reset();
@@ -169,7 +256,10 @@ window.openOfferModal = function() {
 }
 
 window.closeOfferModal = function() {
-    document.getElementById('offerModal').style.display = 'none';
+    const modal = document.getElementById('offerModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
 }
 
 window.toggleDiscountType = function() {
@@ -188,7 +278,7 @@ window.editOffer = async function(offerId) {
     try {
         const offerDoc = await getDoc(doc(db, 'offers', offerId));
         if (offerDoc.exists()) {
-            const offer = { id: offerDoc.id, ...offerDoc.data() };
+            const offer = { id: offerId, ...offerDoc.data() };
             
             document.getElementById('offerId').value = offer.id;
             document.getElementById('offerName').value = offer.name || '';
