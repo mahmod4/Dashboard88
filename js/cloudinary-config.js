@@ -3,30 +3,37 @@
 const cloudinaryConfig = {
     cloudName: 'ddm0j229o', // Cloud name
     apiKey: '915513453848396', // API Key
-    // apiSecret: 'gwwRDcbDIKPdu1-f6jSyLsCu2yk', // API Secret (غير مطلوب للـ unsigned upload)
-    uploadPreset: 'my-store', // Upload preset الموجود في الحساب (Unsigned)
+    apiSecret: 'gwwRDcbDIKPdu1-f6jSyLsCu2yk', // API Secret (مطلوب للـ signed upload)
+    uploadPreset: 'my-store', // Upload preset الموجود في الحساب (Signed)
     folder: 'products' // مجلد المنتجات
 };
 
 // دالة لإنشاء توقيع التحميل
-// ⚠️ ملاحظة: هذه الدالة تحتاج Node.js crypto module
-// تعمل في بيئة Node.js أو build process فقط
-// لا تعمل مباشرة في المتصفح (لأن الرفع من المتصفح يستخدم Unsigned preset)
-function generateSignature(dataToSign) {
-    // في بيئة المتصفح، استخدم Web Crypto API
-    if (typeof window !== 'undefined' && window.crypto && window.crypto.subtle) {
-        // Web Crypto API للمتصفح
-        const encoder = new TextEncoder();
-        const data = encoder.encode(dataToSign + cloudinaryConfig.apiSecret);
-        
-        // ملاحظة: Web Crypto API يعمل بشكل غير متزامن
-        // هذه الدالة تحتاج تعديل لتكون async
-        console.warn('generateSignature: Web Crypto API requires async function');
+// تعمل في بيئة المتصفح باستخدام Web Crypto API
+async function generateSignature(dataToSign) {
+    try {
+        // في بيئة المتصفح، استخدم Web Crypto API
+        if (typeof window !== 'undefined' && window.crypto && window.crypto.subtle) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(dataToSign + cloudinaryConfig.apiSecret);
+            
+            const hashBuffer = await window.crypto.subtle.digest(
+                { name: 'SHA-1' },
+                data
+            );
+            
+            // تحويل ArrayBuffer إلى hex string
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            
+            return hashHex;
+        } else {
+            console.warn('Web Crypto API not supported');
+            return null;
+        }
+    } catch (error) {
+        console.error('Error generating signature:', error);
         return null;
-    } else {
-        // Node.js environment
-        const crypto = require('crypto');
-        return crypto.createHash('sha1').update(dataToSign + cloudinaryConfig.apiSecret).digest('hex');
     }
 }
 
@@ -47,11 +54,23 @@ async function uploadImageToCloudinary(file, productId = null) {
             formData.append('folder', cloudinaryConfig.folder);
         }
 
+        // إضافة التوقيع للـ signed upload
+        const timestamp = Math.floor(Date.now() / 1000);
+        const signatureData = `timestamp=${timestamp}&upload_preset=${cloudinaryConfig.uploadPreset}&folder=${productId ? cloudinaryConfig.folder + '/' + productId : cloudinaryConfig.folder}`;
+        const signature = await generateSignature(signatureData);
+        
+        if (signature) {
+            formData.append('timestamp', timestamp);
+            formData.append('signature', signature);
+        }
+
         console.log('إعدادات الرفع:', {
             cloudName: cloudinaryConfig.cloudName,
             apiKey: cloudinaryConfig.apiKey,
             uploadPreset: cloudinaryConfig.uploadPreset,
-            folder: productId ? `${cloudinaryConfig.folder}/${productId}` : cloudinaryConfig.folder
+            folder: productId ? `${cloudinaryConfig.folder}/${productId}` : cloudinaryConfig.folder,
+            timestamp,
+            signature: signature ? 'generated' : 'unsigned'
         });
 
         const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloudName}/image/upload`, {
@@ -114,11 +133,18 @@ async function deleteImageFromCloudinary(publicId) {
     try {
         console.log('بدء حذف الصورة من Cloudinary:', publicId);
         
-        // استخدام unsigned delete API
+        const timestamp = Math.floor(Date.now() / 1000);
+        const signatureData = `public_id=${publicId}&timestamp=${timestamp}`;
+        const signature = await generateSignature(signatureData);
+
         const formData = new FormData();
         formData.append('public_id', publicId);
         formData.append('api_key', cloudinaryConfig.apiKey);
-        formData.append('upload_preset', cloudinaryConfig.uploadPreset);
+        formData.append('timestamp', timestamp);
+        
+        if (signature) {
+            formData.append('signature', signature);
+        }
 
         const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloudName}/image/destroy`, {
             method: 'POST',
@@ -302,14 +328,14 @@ async function uploadImageWithUI(fileInput, productId = null, onProgress = null)
 
         // بدء التحميل
         if (onProgress) {
-            onProgress(0, 'جاري تحميل الصورة إلى Cloudinary...');
+            onProgress(0, 'جاري تحميل الصورة إلى Cloudinary (signed)...');
         }
 
         // تحميل الصورة
         const result = await uploadImageToCloudinary(file, productId);
 
         if (onProgress) {
-            onProgress(100, 'تم تحميل الصورة بنجاح إلى Cloudinary');
+            onProgress(100, 'تم تحميل الصورة بنجاح إلى Cloudinary (signed)');
         }
 
         return result;

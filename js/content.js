@@ -283,7 +283,7 @@ window.saveBanner = async function(event) {
         console.log('حفظ بيانات البانر في Firestore:', bannerData);
         await setDoc(doc(db, 'content', 'main'), bannerData, { merge: true });
         
-        alert('تم حفظ البانر بنجاح (تم الرفع إلى Cloudinary)');
+        alert('تم حفظ البانر بنجاح (تم الرفع إلى Cloudinary باستخدام signed upload)');
         loadContent();
         
     } catch (error) {
