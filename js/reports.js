@@ -50,6 +50,8 @@ window.generateReport = async function() {
         const end = new Date(endDate);
         end.setHours(23, 59, 59, 999);
         
+        console.log('جلب الطلبات من:', start, 'إلى:', end);
+        
         // Get orders in date range
         const ordersSnapshot = await getDocs(query(
             collection(db, 'orders'),
@@ -57,24 +59,59 @@ window.generateReport = async function() {
             where('createdAt', '<=', end),
             orderBy('createdAt', 'desc')
         ));
-        const orders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        const orders = ordersSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                ...data,
+                // التأكد من وجود الحقول المطلوبة
+                total: data.total || 0,
+                status: data.status || 'unknown',
+                items: data.items || [],
+                createdAt: data.createdAt,
+                customerName: data.customerName || data.userName || 'غير محدد'
+            };
+        });
+        
+        console.log(`تم جلب ${orders.length} طلب`);
+        
+        if (orders.length === 0) {
+            reportContent.innerHTML = `
+                <div class="card">
+                    <div class="text-center py-8">
+                        <i class="fas fa-chart-line text-6xl text-gray-300 mb-4"></i>
+                        <h3 class="text-xl font-semibold text-gray-600 mb-2">لا توجد بيانات في الفترة المحددة</h3>
+                        <p class="text-gray-500">يرجى اختيار فترة زمنية أخرى تحتوي على طلبات</p>
+                    </div>
+                </div>
+            `;
+            return;
+        }
         
         // Calculate statistics
         const totalSales = orders.reduce((sum, order) => sum + (order.total || 0), 0);
         const totalOrders = orders.length;
         const completedOrders = orders.filter(o => o.status === 'completed').length;
         const cancelledOrders = orders.filter(o => o.status === 'cancelled').length;
+        const pendingOrders = orders.filter(o => o.status === 'pending').length;
         
         // Get top products
         const productsMap = new Map();
         orders.forEach(order => {
             (order.items || []).forEach(item => {
-                const current = productsMap.get(item.productId || item.name) || { name: item.name, quantity: 0, revenue: 0 };
-                current.quantity += item.quantity;
-                current.revenue += item.price * item.quantity;
-                productsMap.set(item.productId || item.name, current);
+                const productKey = item.productId || item.name || 'منتج غير معروف';
+                const current = productsMap.get(productKey) || { 
+                    name: item.name || 'منتج غير معروف', 
+                    quantity: 0, 
+                    revenue: 0 
+                };
+                current.quantity += (item.quantity || 1);
+                current.revenue += (item.price || 0) * (item.quantity || 1);
+                productsMap.set(productKey, current);
             });
         });
+        
         const topProducts = Array.from(productsMap.values())
             .sort((a, b) => b.revenue - a.revenue)
             .slice(0, 10);
@@ -82,8 +119,25 @@ window.generateReport = async function() {
         // Daily sales chart data
         const dailySales = {};
         orders.forEach(order => {
-            const date = order.createdAt?.toDate().toLocaleDateString('ar-SA') || 'غير محدد';
+            let date = 'غير محدد';
+            try {
+                if (order.createdAt) {
+                    date = order.createdAt.toDate().toLocaleDateString('ar-SA');
+                }
+            } catch (e) {
+                console.warn('خطأ في تحويل التاريخ:', e);
+            }
             dailySales[date] = (dailySales[date] || 0) + (order.total || 0);
+        });
+        
+        console.log('إحصائيات التقرير:', {
+            totalSales,
+            totalOrders,
+            completedOrders,
+            cancelledOrders,
+            pendingOrders,
+            topProductsCount: topProducts.length,
+            dailySalesCount: Object.keys(dailySales).length
         });
         
         reportContent.innerHTML = `
@@ -125,7 +179,7 @@ window.generateReport = async function() {
                         </button>
                     </div>
                     <div class="space-y-2">
-                        ${topProducts.map((product, index) => `
+                        ${topProducts.length > 0 ? topProducts.map((product, index) => `
                             <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                                 <div class="flex items-center">
                                     <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-bold ml-3">${index + 1}</span>
@@ -136,7 +190,7 @@ window.generateReport = async function() {
                                 </div>
                                 <span class="text-green-600 font-bold">${product.revenue.toFixed(2)} ج.م</span>
                             </div>
-                        `).join('')}
+                        `).join('') : '<p class="text-center text-gray-500 py-4">لا توجد منتجات</p>'}
                     </div>
                 </div>
             </div>
@@ -165,19 +219,30 @@ window.generateReport = async function() {
                             </tr>
                         </thead>
                         <tbody>
-                            ${orders.map(order => `
-                                <tr>
-                                    <td>#${order.id.substring(0, 8)}</td>
-                                    <td>${order.createdAt?.toDate().toLocaleDateString('ar-SA') || 'غير محدد'}</td>
-                                    <td>${order.customerName || order.userName || 'غير محدد'}</td>
-                                    <td>${order.total?.toFixed(2) || 0} ج.م</td>
-                                    <td>
-                                        <span class="badge badge-${getOrderStatusColor(order.status)}">
-                                            ${getOrderStatusText(order.status)}
-                                        </span>
-                                    </td>
-                                </tr>
-                            `).join('')}
+                            ${orders.map(order => {
+                                let orderDate = 'غير محدد';
+                                try {
+                                    if (order.createdAt) {
+                                        orderDate = order.createdAt.toDate().toLocaleDateString('ar-SA');
+                                    }
+                                } catch (e) {
+                                    console.warn('خطأ في عرض التاريخ:', e);
+                                }
+                                
+                                return `
+                                    <tr>
+                                        <td>#${order.id.substring(0, 8)}</td>
+                                        <td>${orderDate}</td>
+                                        <td>${order.customerName}</td>
+                                        <td>${order.total.toFixed(2)} ج.م</td>
+                                        <td>
+                                            <span class="badge badge-${getOrderStatusColor(order.status)}">
+                                                ${getOrderStatusText(order.status)}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('')}
                         </tbody>
                     </table>
                 </div>
@@ -185,11 +250,30 @@ window.generateReport = async function() {
         `;
         
         // Load Chart.js and create chart
-        await loadChartJS();
-        createDailySalesChart(dailySales);
+        try {
+            await loadChartJS();
+            createDailySalesChart(dailySales);
+        } catch (chartError) {
+            console.warn('خطأ في تحميل الرسم البياني:', chartError);
+            // لا نوقف التقرير إذا فشل الرسم البياني
+        }
+        
+        console.log('تم إنشاء التقرير بنجاح');
+        
     } catch (error) {
         console.error('Error generating report:', error);
-        reportContent.innerHTML = '<div class="card"><p class="text-red-600">حدث خطأ أثناء إنشاء التقرير</p></div>';
+        reportContent.innerHTML = `
+            <div class="card">
+                <div class="text-center py-8">
+                    <i class="fas fa-exclamation-triangle text-6xl text-red-300 mb-4"></i>
+                    <h3 class="text-xl font-semibold text-red-600 mb-2">حدث خطأ أثناء إنشاء التقرير</h3>
+                    <p class="text-gray-600 mb-4">${error.message || 'خطأ غير معروف'}</p>
+                    <button onclick="generateReport()" class="btn-primary">
+                        <i class="fas fa-redo ml-2"></i>إعادة المحاولة
+                    </button>
+                </div>
+            </div>
+        `;
     }
 }
 
@@ -216,51 +300,165 @@ function getOrderStatusText(status) {
 }
 
 async function loadChartJS() {
-    if (window.Chart) return;
+    if (window.Chart) {
+        console.log('Chart.js محمل بالفعل');
+        return;
+    }
     
-    return new Promise((resolve) => {
+    console.log('جاري تحميل Chart.js...');
+    
+    return new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
-        script.onload = resolve;
+        script.onload = () => {
+            console.log('تم تحميل Chart.js بنجاح');
+            resolve();
+        };
+        script.onerror = () => {
+            console.error('فشل تحميل Chart.js');
+            reject(new Error('فشل تحميل Chart.js'));
+        };
+        
+        // إضافة timeout لمنع الانتظار الطويل
+        setTimeout(() => {
+            if (!window.Chart) {
+                reject(new Error('انتهت مهلة تحميل Chart.js'));
+            }
+        }, 10000);
+        
         document.head.appendChild(script);
     });
 }
 
 function createDailySalesChart(dailySales) {
     const ctx = document.getElementById('dailySalesChart');
-    if (!ctx) return;
+    if (!ctx) {
+        console.warn('عنصر الرسم البياني غير موجود');
+        return;
+    }
     
-    const dates = Object.keys(dailySales).sort();
-    const sales = dates.map(date => dailySales[date]);
-    
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: dates,
-            datasets: [{
-                label: 'المبيعات (ج.م)',
-                data: sales,
-                borderColor: 'rgb(66, 153, 225)',
-                backgroundColor: 'rgba(66, 153, 225, 0.1)',
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'top'
-                }
+    try {
+        const dates = Object.keys(dailySales).sort();
+        const sales = dates.map(date => dailySales[date]);
+        
+        console.log('بيانات الرسم البياني:', { dates, sales });
+        
+        // التحقق من وجود Chart.js
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js غير محمل');
+            return;
+        }
+        
+        // تدمير الرسم البياني القديم إذا وجد
+        if (window.dailySalesChartInstance) {
+            window.dailySalesChartInstance.destroy();
+        }
+        
+        window.dailySalesChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [{
+                    label: 'المبيعات (ج.م)',
+                    data: sales,
+                    borderColor: 'rgb(66, 153, 225)',
+                    backgroundColor: 'rgba(66, 153, 225, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 5,
+                    pointHoverRadius: 8,
+                    pointBackgroundColor: 'rgb(66, 153, 225)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
+                }]
             },
-            scales: {
-                y: {
-                    beginAtZero: true
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            font: {
+                                size: 14,
+                                family: 'Tajawal, sans-serif'
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleFont: {
+                            size: 14,
+                            family: 'Tajawal, sans-serif'
+                        },
+                        bodyFont: {
+                            size: 13,
+                            family: 'Tajawal, sans-serif'
+                        },
+                        padding: 12,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                return `المبيعات: ${context.parsed.y.toFixed(2)} ج.م`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        },
+                        ticks: {
+                            font: {
+                                family: 'Tajawal, sans-serif'
+                            },
+                            callback: function(value) {
+                                return value + ' ج.م';
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            font: {
+                                family: 'Tajawal, sans-serif'
+                            }
+                        }
+                    }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                animation: {
+                    duration: 1000,
+                    easing: 'easeInOutQuart'
                 }
             }
+        });
+        
+        console.log('تم إنشاء الرسم البياني بنجاح');
+        
+    } catch (error) {
+        console.error('خطأ في إنشاء الرسم البياني:', error);
+        
+        // عرض رسالة خطأ في مكان الرسم البياني
+        const chartContainer = ctx.parentElement;
+        if (chartContainer) {
+            chartContainer.innerHTML = `
+                <div class="text-center py-8">
+                    <i class="fas fa-chart-line text-4xl text-gray-300 mb-3"></i>
+                    <p class="text-gray-500">تعذر عرض الرسم البياني</p>
+                    <p class="text-sm text-gray-400 mt-2">${error.message}</p>
+                </div>
+            `;
         }
-    });
+    }
 }
 
 window.exportToExcel = function(type) {
