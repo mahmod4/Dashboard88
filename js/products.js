@@ -364,11 +364,25 @@ async function getProducts() {
 async function loadCategoriesForSelect() {
     try {
         const categoriesSnapshot = await getDocs(collection(db, 'categories'));
-        const categories = categoriesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let categories = categoriesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
-        // ملء select
+        // إضافة أقسام تجريبية إذا لم توجد أقسام
+        if (categories.length === 0) {
+            console.log('إضافة أقسام تجريبية للاختبار');
+            categories = [
+                { id: 'fruits', name: 'فواكه' },
+                { id: 'vegetables', name: 'خضروات' },
+                { id: 'dairy', name: 'منتجات الألبان' },
+                { id: 'meat', name: 'لحوم' },
+                { id: 'bakery', name: 'مخبوزات' },
+                { id: 'drinks', name: 'مشروبات' }
+            ];
+        }
+        
+        // ملء select للمنتج العادي
         const select = document.getElementById('productCategory');
         if (select) {
+            select.innerHTML = '<option value="">اختر القسم...</option>';
             categories.forEach(cat => {
                 const option = document.createElement('option');
                 option.value = cat.id;
@@ -376,8 +390,40 @@ async function loadCategoriesForSelect() {
                 select.appendChild(option);
             });
         }
+        
+        // ملء select للتعديل الجماعي
+        const bulkSelect = document.getElementById('bulkCategory');
+        if (bulkSelect) {
+            bulkSelect.innerHTML = '<option value="">لا تغيير</option>';
+            categories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat.id;
+                option.textContent = cat.name;
+                bulkSelect.appendChild(option);
+            });
+        }
+        
+        console.log(`تم تحميل ${categories.length} قسم بنجاح`);
     } catch (error) {
         console.error('Error loading categories:', error);
+        
+        // في حالة الخطأ، إضافة أقسام افتراضية
+        const defaultCategories = [
+            { id: 'fruits', name: 'فواكه' },
+            { id: 'vegetables', name: 'خضروات' },
+            { id: 'dairy', name: 'منتجات الألبان' }
+        ];
+        
+        const bulkSelect = document.getElementById('bulkCategory');
+        if (bulkSelect) {
+            bulkSelect.innerHTML = '<option value="">لا تغيير</option>';
+            defaultCategories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat.id;
+                option.textContent = cat.name;
+                bulkSelect.appendChild(option);
+            });
+        }
     }
 }
 
@@ -1087,8 +1133,10 @@ window.openBulkEditModal = function() {
     document.body.appendChild(modal);
     modal.style.display = 'block';
     
-    // Load categories for select
-    loadCategoriesForSelect();
+    // Load categories for select مع تأخير بسيط لضمان تحميل الـ DOM
+    setTimeout(async () => {
+        await loadCategoriesForSelect();
+    }, 100);
 }
 
 // إغلاق نافذة التعديل الجماعي
