@@ -189,5 +189,18 @@ export function navigateToPage(page) {
 try {
     window.navigateToPage = navigateToPage;
     window.getDashboardCurrentPage = () => currentPage;
+    
+    // دالة لفتح/إغلاق القائمة الجانبية على الموبايل
+    window.toggleMobileMenu = function() {
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.querySelector('.sidebar-overlay');
+        const body = document.body;
+        
+        if (sidebar && overlay) {
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('hidden');
+            body.classList.toggle('sidebar-open');
+        }
+    };
 } catch (e) {}
 

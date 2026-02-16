@@ -640,6 +640,8 @@ body {
     .sidebar {
         width: 100%;
         transform: translateX(100%);
+        transition: transform 0.3s ease;
+        z-index: 1000;
     }
     
     .sidebar.open {
@@ -656,7 +658,7 @@ body {
         position: fixed;
         top: 1rem;
         right: 1rem;
-        z-index: 60;
+        z-index: 1001;
         background: #1f2937;
         color: white;
         border: none;
@@ -972,7 +974,7 @@ body {
     width: 100%;
     height: 100%;
     background: rgba(0,0,0,0.5);
-    z-index: 49;
+    z-index: 999;
 }
 
 body.sidebar-open .sidebar-overlay {
