@@ -265,9 +265,7 @@ try {
                 }
                 
                 // الانتقال للصفحة
-                setTimeout(() => {
-                    navigateToPage(page);
-                }, 100);
+                navigateToPage(page);
             });
             
             // إضافة touch events للموبايل
@@ -297,13 +295,10 @@ try {
                 }
                 
                 // الانتقال للصفحة
-                setTimeout(() => {
-                    navigateToPage(page);
-                }, 100);
+                navigateToPage(page);
             });
         });
     });
 } catch (e) {
     console.error('Error setting up navigation:', e);
 }
-
