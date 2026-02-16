@@ -162,22 +162,19 @@ function showDashboard() {
 
 // الانتقال إلى صفحة داخل اللوحة (وتغيير حالة Active + تحميل المحتوى)
 export function navigateToPage(page) {
-    console.log('Navigating to page:', page);
     currentPage = page;
     
     // تحديث العنصر النشط في القائمة الجانبية
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');
-        // البحث عن العنصر الذي يحتوي على الصفحة المطلوبة
-        const onclickAttr = item.getAttribute('onclick');
-        if (onclickAttr && onclickAttr.includes(`navigateToPage('${page}')`)) {
+        if (item.getAttribute('data-page') === page) {
             item.classList.add('active');
         }
     });
-    
+
     // تحديث عنوان الصفحة في الـ Header
     pageTitle.textContent = pageTitles[page] || page;
-    
+
     // عرض Loader ثم تحميل الصفحة المطلوبة
     pageContent.innerHTML = '<div class="loading"><div class="spinner"></div><p>جاري التحميل...</p></div>';
     
@@ -192,113 +189,5 @@ export function navigateToPage(page) {
 try {
     window.navigateToPage = navigateToPage;
     window.getDashboardCurrentPage = () => currentPage;
-    
-    // دالة لفتح/إغلاق القائمة الجانبية على الموبايل
-    window.toggleMobileMenu = function() {
-        console.log('toggleMobileMenu called');
-        
-        const sidebar = document.querySelector('.sidebar');
-        const overlay = document.querySelector('.sidebar-overlay');
-        const body = document.body;
-        
-        console.log('Elements found:', {
-            sidebar: !!sidebar,
-            overlay: !!overlay,
-            body: !!body
-        });
-        
-        if (sidebar && overlay) {
-            const isOpen = sidebar.classList.contains('open');
-            console.log('Sidebar is currently open:', isOpen);
-            
-            if (isOpen) {
-                // إغلاق القائمة
-                console.log('Closing sidebar');
-                sidebar.classList.remove('open');
-                overlay.classList.add('hidden');
-                body.classList.remove('sidebar-open');
-            } else {
-                // فتح القائمة
-                console.log('Opening sidebar');
-                sidebar.classList.add('open');
-                overlay.classList.remove('hidden');
-                body.classList.add('sidebar-open');
-            }
-        } else {
-            console.error('Sidebar or overlay not found!');
-        }
-    };
-    
-    // إضافة event listeners للروابط القائمة الجانبية
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('DOM loaded, adding nav item listeners');
-        
-        // إزالة event listeners القديمة أولاً
-        const navItems = document.querySelectorAll('.nav-item');
-        navItems.forEach(item => {
-            // استنساخ الأحداث القديمة
-            const newItem = item.cloneNode(true);
-            item.parentNode.replaceChild(newItem, item);
-        });
-        
-        // إضافة event listeners جديدة
-        const newNavItems = document.querySelectorAll('.nav-item');
-        newNavItems.forEach(item => {
-            item.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                const page = this.getAttribute('onclick').match(/navigateToPage\('([^']+)'\)/)[1];
-                console.log('Nav item clicked:', page);
-                
-                // إغلاق القائمة على الموبايل بعد الضغط على رابط
-                if (window.innerWidth <= 768) {
-                    const sidebar = document.querySelector('.sidebar');
-                    const overlay = document.querySelector('.sidebar-overlay');
-                    const body = document.body;
-                    
-                    if (sidebar && overlay) {
-                        console.log('Closing sidebar after nav click');
-                        sidebar.classList.remove('open');
-                        overlay.classList.add('hidden');
-                        body.classList.remove('sidebar-open');
-                    }
-                }
-                
-                // الانتقال للصفحة
-                navigateToPage(page);
-            });
-            
-            // إضافة touch events للموبايل
-            item.addEventListener('touchstart', function(e) {
-                e.preventDefault();
-                const page = this.getAttribute('onclick').match(/navigateToPage\('([^']+)'\)/)[1];
-                console.log('Nav item touch start:', page);
-            });
-            
-            item.addEventListener('touchend', function(e) {
-                e.preventDefault();
-                const page = this.getAttribute('onclick').match(/navigateToPage\('([^']+)'\)/)[1];
-                console.log('Nav item touch end:', page);
-                
-                // إغلاق القائمة على الموبايل بعد اللمس
-                if (window.innerWidth <= 768) {
-                    const sidebar = document.querySelector('.sidebar');
-                    const overlay = document.querySelector('.sidebar-overlay');
-                    const body = document.body;
-                    
-                    if (sidebar && overlay) {
-                        console.log('Closing sidebar after nav touch');
-                        sidebar.classList.remove('open');
-                        overlay.classList.add('hidden');
-                        body.classList.remove('sidebar-open');
-                    }
-                }
-                
-                // الانتقال للصفحة
-                navigateToPage(page);
-            });
-        });
-    });
-} catch (e) {
-    console.error('Error setting up navigation:', e);
-}
+} catch (e) {}
+

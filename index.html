@@ -2,11 +2,10 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>لوحة التحكم - متجر إلكتروني</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="bg-gray-100">
@@ -41,12 +40,12 @@
     <!-- Dashboard -->
     <div id="dashboardPage" class="hidden">
         <!-- Mobile Menu Button -->
-        <button id="mobileMenuBtn" class="mobile-menu-btn" onclick="console.log('Mobile menu button clicked'); toggleMobileMenu();">
+        <button id="mobileMenuBtn" class="mobile-menu-btn" onclick="toggleMobileMenu()">
             <i class="fas fa-bars"></i>
         </button>
         
         <!-- Sidebar Overlay (Mobile) -->
-        <div class="sidebar-overlay" onclick="console.log('Overlay clicked'); toggleMobileMenu();"></div>
+        <div class="sidebar-overlay" onclick="toggleMobileMenu()"></div>
         
         <!-- Sidebar -->
         <div id="sidebar" class="fixed right-0 top-0 h-full w-64 bg-gray-800 text-white shadow-lg z-50 sidebar">
@@ -54,42 +53,42 @@
                 <h2 class="text-2xl font-bold"><i class="fas fa-store ml-2"></i>لوحة التحكم</h2>
             </div>
             <nav class="mt-6 flex-1">
-                <div onclick="navigateToPage('dashboard')" class="nav-item active">
+                <a href="#" data-page="dashboard" class="nav-item active">
                     <i class="fas fa-home ml-3"></i>الصفحة الرئيسية
-                </div>
-                <div onclick="navigateToPage('products')" class="nav-item">
+                </a>
+                <a href="#" data-page="products" class="nav-item">
                     <i class="fas fa-box ml-3"></i>المنتجات
-                </div>
-                <div onclick="navigateToPage('categories')" class="nav-item">
+                </a>
+                <a href="#" data-page="categories" class="nav-item">
                     <i class="fas fa-tags ml-3"></i>الأقسام
-                </div>
-                <div onclick="navigateToPage('orders')" class="nav-item">
+                </a>
+                <a href="#" data-page="orders" class="nav-item">
                     <i class="fas fa-shopping-cart ml-3"></i>الطلبات
-                </div>
-                <div onclick="navigateToPage('users')" class="nav-item">
+                </a>
+                <a href="#" data-page="users" class="nav-item">
                     <i class="fas fa-users ml-3"></i>المستخدمين
-                </div>
-                <div onclick="navigateToPage('offers')" class="nav-item">
+                </a>
+                <a href="#" data-page="offers" class="nav-item">
                     <i class="fas fa-percent ml-3"></i>العروض والخصومات
-                </div>
-                <div onclick="navigateToPage('loyalty')" class="nav-item">
+                </a>
+                <a href="#" data-page="loyalty" class="nav-item">
                     <i class="fas fa-star ml-3"></i>نقاط الولاء
-                </div>
-                <div onclick="navigateToPage('payments')" class="nav-item">
+                </a>
+                <a href="#" data-page="payments" class="nav-item">
                     <i class="fas fa-credit-card ml-3"></i>الدفع الإلكتروني
-                </div>
-                <div onclick="navigateToPage('reports')" class="nav-item">
+                </a>
+                <a href="#" data-page="reports" class="nav-item">
                     <i class="fas fa-chart-bar ml-3"></i>التقارير
-                </div>
-                <div onclick="navigateToPage('notifications')" class="nav-item">
+                </a>
+                <a href="#" data-page="notifications" class="nav-item">
                     <i class="fas fa-bell ml-3"></i>الإشعارات
-                </div>
-                <div onclick="navigateToPage('content')" class="nav-item">
+                </a>
+                <a href="#" data-page="content" class="nav-item">
                     <i class="fas fa-file-alt ml-3"></i>إدارة المحتوى
-                </div>
-                <div onclick="navigateToPage('settings')" class="nav-item">
+                </a>
+                <a href="#" data-page="settings" class="nav-item">
                     <i class="fas fa-cog ml-3"></i>الإعدادات
-                </div>
+                </a>
             </nav>
             <div class="sticky bottom-0 w-full p-4 border-t border-gray-700 bg-gray-800">
                 <button id="logoutBtn" class="w-full bg-red-600 py-2 rounded-lg hover:bg-red-700 transition">
