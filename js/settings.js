@@ -329,7 +329,7 @@ window.saveGeneralSettings = async function(event) {
         };
         
         await setDoc(doc(db, 'settings', 'general'), settingsData, { merge: true });
-        alert('تم حفظ الإعدادات العامة بنجاح (تم الرفع إلى Cloudinary باستخدام unsigned upload)');
+        alert('تم حفظ الإعدادات العامة بنجاح (تم الرفع إلى Cloudinary باستخدام signed upload)');
         loadSettings();
     } catch (error) {
         console.error('Error saving general settings:', error);
