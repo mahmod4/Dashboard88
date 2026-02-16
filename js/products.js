@@ -33,6 +33,9 @@ export async function loadProducts() {
                         <button onclick="openBulkEditModal()" class="btn-warning">
                             <i class="fas fa-edit ml-2"></i>تعديل جماعي
                         </button>
+                        <button onclick="openBulkDeleteModal()" class="btn-danger">
+                            <i class="fas fa-trash ml-2"></i>حذف جماعي
+                        </button>
                         <button onclick="openProductModal()" class="btn-primary">
                             <i class="fas fa-plus ml-2"></i>إضافة منتج جديد
                         </button>
@@ -1047,6 +1050,18 @@ window.toggleSelectAll = function() {
     });
 }
 
+// الحصول على قائمة المنتجات المحددة
+window.getSelectedProducts = function() {
+    const checkboxes = document.querySelectorAll('.product-checkbox:checked');
+    const selectedProducts = [];
+    
+    checkboxes.forEach(checkbox => {
+        selectedProducts.push(checkbox.value);
+    });
+    
+    return selectedProducts;
+}
+
 // ================================
 // التعديل الجماعي (Bulk Edit)
 // ================================
@@ -1144,6 +1159,146 @@ window.closeBulkEditModal = function() {
     const modal = document.querySelector('.modal');
     if (modal) {
         modal.remove();
+    }
+}
+
+// فتح نافذة الحذف الجماعي
+window.openBulkDeleteModal = function() {
+    const selectedProducts = getSelectedProducts();
+    
+    if (selectedProducts.length === 0) {
+        alert('يرجى اختيار منتج واحد على الأقل للحذف');
+        return;
+    }
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    modal.innerHTML = `
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 class="text-xl font-bold mb-4 text-red-600">
+                <i class="fas fa-exclamation-triangle ml-2"></i>
+                تأكيد الحذف الجماعي
+            </h3>
+            
+            <div class="mb-4">
+                <p class="text-gray-700 mb-2">
+                    هل أنت متأكد من حذف <strong>${selectedProducts.length}</strong> منتج؟
+                </p>
+                <p class="text-red-600 text-sm">
+                    ⚠️ هذا الإجراء لا يمكن التراجع عنه وسيحذف:
+                </p>
+                <ul class="text-red-600 text-sm mr-4 mt-2">
+                    <li>• بيانات المنتجات</li>
+                    <li>• جميع الصور المرتبطة</li>
+                    <li>• أي بيانات متعلقة بالمنتجات</li>
+                </ul>
+            </div>
+            
+            <div class="mb-4">
+                <label class="flex items-center text-red-600">
+                    <input type="checkbox" id="confirmDelete" class="ml-2">
+                    <span>نعم، أنا متأكد من الحذف</span>
+                </label>
+            </div>
+            
+            <input type="hidden" id="bulkDeleteProductIds" value="${selectedProducts.join(',')}">
+            
+            <div class="flex justify-end space-x-3 space-x-reverse">
+                <button type="button" onclick="closeBulkDeleteModal()" 
+                        class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    إلغاء
+                </button>
+                <button type="button" onclick="performBulkDelete()" 
+                        class="btn-danger" id="bulkDeleteBtn" disabled>
+                    <i class="fas fa-trash ml-2"></i>حذف المنتجات
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    modal.style.display = 'block';
+    
+    // تفعيل زر الحذف عند تأكيد المستخدم
+    document.getElementById('confirmDelete').addEventListener('change', function() {
+        document.getElementById('bulkDeleteBtn').disabled = !this.checked;
+    });
+}
+
+// إغلاق نافذة الحذف الجماعي
+window.closeBulkDeleteModal = function() {
+    const modal = document.querySelector('.modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// تنفيذ الحذف الجماعي
+window.performBulkDelete = async function() {
+    const productIds = document.getElementById('bulkDeleteProductIds').value.split(',');
+    const deleteBtn = document.getElementById('bulkDeleteBtn');
+    
+    try {
+        // تعطيل الزر أثناء الحذف
+        deleteBtn.disabled = true;
+        deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin ml-2"></i>جاري الحذف...';
+        
+        let deletedCount = 0;
+        let errorCount = 0;
+        
+        for (const productId of productIds) {
+            try {
+                // جلب بيانات المنتج أولاً
+                const productDoc = await getDoc(doc(db, 'products', productId.trim()));
+                
+                if (productDoc.exists()) {
+                    const productData = productDoc.data();
+                    
+                    // حذف الصور من Cloudinary
+                    if (productData.images && Array.isArray(productData.images)) {
+                        for (const image of productData.images) {
+                            if (image.publicId) {
+                                try {
+                                    await deleteImageFromCloudinary(image.publicId);
+                                    console.log('تم حذف الصورة:', image.publicId);
+                                } catch (error) {
+                                    console.warn('خطأ في حذف الصورة:', error);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // حذف المنتج من Firestore
+                    await deleteDoc(doc(db, 'products', productId.trim()));
+                    console.log('تم حذف المنتج:', productId);
+                    deletedCount++;
+                }
+            } catch (error) {
+                console.error('خطأ في حذف المنتج:', productId, error);
+                errorCount++;
+            }
+        }
+        
+        // إغلاق النافذة
+        closeBulkDeleteModal();
+        
+        // إعادة تحميل قائمة المنتجات
+        loadProducts();
+        
+        // عرض رسالة النتيجة
+        if (errorCount === 0) {
+            alert(`✅ تم حذف ${deletedCount} منتج بنجاح`);
+        } else {
+            alert(`⚠️ تم حذف ${deletedCount} منتج بنجاح، وفشل حذف ${errorCount} منتج`);
+        }
+        
+    } catch (error) {
+        console.error('Error in bulk delete:', error);
+        alert('حدث خطأ أثناء الحذف الجماعي: ' + error.message);
+    } finally {
+        // إعادة تعيين الزر
+        deleteBtn.disabled = false;
+        deleteBtn.innerHTML = '<i class="fas fa-trash ml-2"></i>حذف المنتجات';
     }
 }
 
