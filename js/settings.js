@@ -329,7 +329,7 @@ window.saveGeneralSettings = async function(event) {
         };
         
         await setDoc(doc(db, 'settings', 'general'), settingsData, { merge: true });
-        alert('تم حفظ الإعدادات العامة بنجاح (تم الرفع إلى Cloudinary)');
+        alert('تم حفظ الإعدادات العامة بنجاح (تم الرفع إلى Cloudinary باستخدام unsigned upload)');
         loadSettings();
     } catch (error) {
         console.error('Error saving general settings:', error);
@@ -368,9 +368,44 @@ window.saveShippingSettings = async function(event) {
         
         await setDoc(doc(db, 'settings', 'general'), settingsData, { merge: true });
         alert('تم حفظ إعدادات الشحن بنجاح');
+        
+        // تحديث إعدادات الوزن في المتجر
+        updateWeightSettingsInStore(settingsData);
+        
+        loadSettings();
     } catch (error) {
         console.error('Error saving shipping settings:', error);
         alert('حدث خطأ أثناء حفظ الإعدادات');
+    }
+}
+
+// دالة لتحديث إعدادات الوزن في المتجر
+async function updateWeightSettingsInStore(settingsData) {
+    try {
+        console.log('تحديث إعدادات الوزن في المتجر:', settingsData);
+        
+        // إرسال إعدادات الوزن إلى المتجر عبر API أو localStorage
+        const weightSettings = {
+            min: settingsData.weightMin,
+            max: settingsData.weightMax,
+            increment: settingsData.weightIncrement,
+            options: settingsData.weightOptions,
+            unit: 'كجم' // وحدة ثابتة
+        };
+        
+        // حفظ في localStorage ليتمكن الوصول إليها من المتجر
+        localStorage.setItem('weightSettings', JSON.stringify(weightSettings));
+        
+        // إرسال حدث مخصص للإشعار المتجر
+        const event = new CustomEvent('weightSettingsUpdated', {
+            detail: weightSettings
+        });
+        document.dispatchEvent(event);
+        
+        console.log('تم تحديث إعدادات الوزن في المتجر بنجاح');
+        
+    } catch (error) {
+        console.error('Error updating weight settings in store:', error);
     }
 }
 

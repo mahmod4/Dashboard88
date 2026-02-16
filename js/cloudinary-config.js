@@ -4,7 +4,7 @@ const cloudinaryConfig = {
     cloudName: 'ddm0j229o', // Cloud name
     apiKey: '915513453848396', // API Key
     apiSecret: 'gwwRDcbDIKPdu1-f6jSyLsCu2yk', // API Secret (مطلوب للـ signed upload)
-    uploadPreset: 'my-store', // Upload preset الموجود في الحساب (Signed)
+    uploadPreset: 'my-store', // Upload preset الموجود في الحساب (Unsigned)
     folder: 'products' // مجلد المنتجات
 };
 
@@ -54,22 +54,13 @@ async function uploadImageToCloudinary(file, productId = null) {
             formData.append('folder', cloudinaryConfig.folder);
         }
 
-        // إضافة التوقيع للـ signed upload
-        const timestamp = Math.floor(Date.now() / 1000);
-        const signatureData = `upload_preset=${cloudinaryConfig.uploadPreset}&folder=${productId ? cloudinaryConfig.folder + '/' + productId : cloudinaryConfig.folder}`;
-        const signature = await generateSignature(signatureData);
-        
-        if (signature) {
-            formData.append('signature', signature);
-        }
-
+        // إضافة التوقيع للـ unsigned upload (لا يتطلب توقيع)
         console.log('إعدادات الرفع:', {
             cloudName: cloudinaryConfig.cloudName,
             apiKey: cloudinaryConfig.apiKey,
             uploadPreset: cloudinaryConfig.uploadPreset,
             folder: productId ? `${cloudinaryConfig.folder}/${productId}` : cloudinaryConfig.folder,
-            timestamp,
-            signature: signature ? 'generated' : 'unsigned'
+            mode: 'unsigned'
         });
 
         const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloudName}/image/upload`, {
@@ -112,21 +103,9 @@ async function uploadImageToCloudinary(file, productId = null) {
         
         // رسائل خطأ مفصلة
         if (error.message.includes('Missing required parameter')) {
-            throw new Error('معاملات مفقودة. يرجى التحقق من إعدادات Cloudinary.');
+            throw new Error('معاملات مفقودة. يرجى التحقق من إعدادات Cloudinary (unsigned upload).');
         } else if (error.message.includes('Invalid upload preset')) {
-            throw new Error('إعدادات الرفع غير صالحة. يرجى التحقق من upload preset.');
-        } else if (error.message.includes('File size too large')) {
-            throw new Error('حجم الملف كبير جداً. الحد الأقصى هو 10 ميجابايت.');
-        } else if (error.message.includes('Unauthorized')) {
-            throw new Error('مفتاح API غير صالح. يرجى التحقق من إعدادات Cloudinary.');
-        } else if (error.message.includes('Not allowed')) {
-            throw new Error('نوع الملف غير مسموح. يرجى استخدام الصور فقط.');
-        } else if (error.message.includes('Invalid Signature')) {
-            throw new Error('توقيع غير صالح. يرجى التحقق من إعدادات Cloudinary API Secret.');
-        } else if (error.message.includes('Missing required parameter')) {
-            throw new Error('معاملات مفقودة. يرجى التحقق من إعدادات Cloudinary.');
-        } else if (error.message.includes('Invalid upload preset')) {
-            throw new Error('إعدادات الرفع غير صالحة. يرجى التحقق من upload preset.');
+            throw new Error('إعدادات الرفع غير صالحة. يرجى التحقق من upload preset (my-store).');
         } else if (error.message.includes('File size too large')) {
             throw new Error('حجم الملف كبير جداً. الحد الأقصى هو 10 ميجابايت.');
         } else if (error.message.includes('Unauthorized')) {
@@ -340,14 +319,14 @@ async function uploadImageWithUI(fileInput, productId = null, onProgress = null)
 
         // بدء التحميل
         if (onProgress) {
-            onProgress(0, 'جاري تحميل الصورة إلى Cloudinary (signed)...');
+            onProgress(0, 'جاري تحميل الصورة إلى Cloudinary (unsigned)...');
         }
 
         // تحميل الصورة
         const result = await uploadImageToCloudinary(file, productId);
 
         if (onProgress) {
-            onProgress(100, 'تم تحميل الصورة بنجاح إلى Cloudinary (signed)');
+            onProgress(100, 'تم تحميل الصورة بنجاح إلى Cloudinary (unsigned)');
         }
 
         return result;
