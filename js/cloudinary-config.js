@@ -4,7 +4,7 @@ const cloudinaryConfig = {
     cloudName: 'ddm0j229o', // Cloud name
     apiKey: '915513453848396', // API Key
     apiSecret: 'gwwRDcbDIKPdu1-f6jSyLsCu2yk', // API Secret (مطلوب للـ signed upload)
-    uploadPreset: 'my-store', // Upload preset الموجود في الحساب (Unsigned)
+    uploadPreset: 'unsigned_uploads', // Upload preset جديد للـ unsigned upload
     folder: 'products' // مجلد المنتجات
 };
 
