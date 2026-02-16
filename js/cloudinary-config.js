@@ -54,24 +54,13 @@ async function uploadImageToCloudinary(file, productId = null) {
             formData.append('folder', cloudinaryConfig.folder);
         }
 
-        // إضافة التوقيع للـ signed upload
-        const timestamp = Math.floor(Date.now() / 1000);
-        const signatureData = `folder=${productId ? cloudinaryConfig.folder + '/' + productId : cloudinaryConfig.folder}&timestamp=${timestamp}&upload_preset=${cloudinaryConfig.uploadPreset}`;
-        const signature = await generateSignature(signatureData);
-        
-        if (signature) {
-            formData.append('timestamp', timestamp);
-            formData.append('signature', signature);
-        }
-
+        // إضافة التوقيع للـ unsigned upload (لا يتطلب توقيع)
         console.log('إعدادات الرفع:', {
             cloudName: cloudinaryConfig.cloudName,
             apiKey: cloudinaryConfig.apiKey,
             uploadPreset: cloudinaryConfig.uploadPreset,
             folder: productId ? `${cloudinaryConfig.folder}/${productId}` : cloudinaryConfig.folder,
-            timestamp,
-            signatureData,
-            signature: signature ? 'generated' : 'unsigned'
+            mode: 'unsigned'
         });
 
         const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloudName}/image/upload`, {
@@ -123,6 +112,8 @@ async function uploadImageToCloudinary(file, productId = null) {
             throw new Error('مفتاح API غير صالح. يرجى التحقق من إعدادات Cloudinary.');
         } else if (error.message.includes('Not allowed')) {
             throw new Error('نوع الملف غير مسموح. يرجى استخدام الصور فقط.');
+        } else if (error.message.includes('Missing or insufficient permissions')) {
+            throw new Error('صلاحيات غير كافية. يرجى التحقق من إعدادات Cloudinary API Key.');
         }
         
         throw error;
@@ -330,14 +321,14 @@ async function uploadImageWithUI(fileInput, productId = null, onProgress = null)
 
         // بدء التحميل
         if (onProgress) {
-            onProgress(0, 'جاري تحميل الصورة إلى Cloudinary (signed)...');
+            onProgress(0, 'جاري تحميل الصورة إلى Cloudinary (unsigned)...');
         }
 
         // تحميل الصورة
         const result = await uploadImageToCloudinary(file, productId);
 
         if (onProgress) {
-            onProgress(100, 'تم تحميل الصورة بنجاح إلى Cloudinary (signed)');
+            onProgress(100, 'تم تحميل الصورة بنجاح إلى Cloudinary (unsigned)');
         }
 
         return result;
