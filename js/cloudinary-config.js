@@ -56,7 +56,7 @@ async function uploadImageToCloudinary(file, productId = null) {
 
         // إضافة التوقيع للـ signed upload
         const timestamp = Math.floor(Date.now() / 1000);
-        const signatureData = `timestamp=${timestamp}&upload_preset=${cloudinaryConfig.uploadPreset}&folder=${productId ? cloudinaryConfig.folder + '/' + productId : cloudinaryConfig.folder}`;
+        const signatureData = `folder=${productId ? cloudinaryConfig.folder + '/' + productId : cloudinaryConfig.folder}&timestamp=${timestamp}&upload_preset=${cloudinaryConfig.uploadPreset}`;
         const signature = await generateSignature(signatureData);
         
         if (signature) {
