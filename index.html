@@ -40,12 +40,12 @@
     <!-- Dashboard -->
     <div id="dashboardPage" class="hidden">
         <!-- Mobile Menu Button -->
-        <button id="mobileMenuBtn" class="mobile-menu-btn" onclick="toggleMobileMenu()">
+        <button id="mobileMenuBtn" class="mobile-menu-btn" onclick="console.log('Mobile menu button clicked'); toggleMobileMenu();">
             <i class="fas fa-bars"></i>
         </button>
         
         <!-- Sidebar Overlay (Mobile) -->
-        <div class="sidebar-overlay" onclick="toggleMobileMenu()"></div>
+        <div class="sidebar-overlay" onclick="console.log('Overlay clicked'); toggleMobileMenu();"></div>
         
         <!-- Sidebar -->
         <div id="sidebar" class="fixed right-0 top-0 h-full w-64 bg-gray-800 text-white shadow-lg z-50 sidebar">

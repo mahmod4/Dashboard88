@@ -1065,7 +1065,7 @@ body.sidebar-open {
     font-size: 24px !important;
 }
 
-/* Mobile menu button */
+/* Mobile menu button - تأكد من الظهور الصحيح */
 .mobile-menu-btn {
     display: none;
     position: fixed;
@@ -1079,11 +1079,35 @@ body.sidebar-open {
     border-radius: 6px;
     font-size: 20px;
     cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
+.mobile-menu-btn:hover {
+    background: #3182ce;
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.mobile-menu-btn:active {
+    transform: scale(0.95);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* تأكد من ظهور الزر على الموبايل فقط */
 @media (max-width: 768px) {
     .mobile-menu-btn {
-        display: block;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+}
+
+@media (min-width: 769px) {
+    .mobile-menu-btn {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
     }
 }
 

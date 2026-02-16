@@ -192,14 +192,37 @@ try {
     
     // دالة لفتح/إغلاق القائمة الجانبية على الموبايل
     window.toggleMobileMenu = function() {
+        console.log('toggleMobileMenu called');
+        
         const sidebar = document.querySelector('.sidebar');
         const overlay = document.querySelector('.sidebar-overlay');
         const body = document.body;
         
+        console.log('Elements found:', {
+            sidebar: !!sidebar,
+            overlay: !!overlay,
+            body: !!body
+        });
+        
         if (sidebar && overlay) {
-            sidebar.classList.toggle('open');
-            overlay.classList.toggle('hidden');
-            body.classList.toggle('sidebar-open');
+            const isOpen = sidebar.classList.contains('open');
+            console.log('Sidebar is currently open:', isOpen);
+            
+            if (isOpen) {
+                // إغلاق القائمة
+                console.log('Closing sidebar');
+                sidebar.classList.remove('open');
+                overlay.classList.add('hidden');
+                body.classList.remove('sidebar-open');
+            } else {
+                // فتح القائمة
+                console.log('Opening sidebar');
+                sidebar.classList.add('open');
+                overlay.classList.remove('hidden');
+                body.classList.add('sidebar-open');
+            }
+        } else {
+            console.error('Sidebar or overlay not found!');
         }
     };
 } catch (e) {}
