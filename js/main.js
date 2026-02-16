@@ -225,5 +225,72 @@ try {
             console.error('Sidebar or overlay not found!');
         }
     };
-} catch (e) {}
+    
+    // إضافة event listeners للروابط القائمة الجانبية
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM loaded, adding nav item listeners');
+        
+        const navItems = document.querySelectorAll('.nav-item');
+        navItems.forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const page = this.getAttribute('data-page');
+                console.log('Nav item clicked:', page);
+                
+                // إغلاق القائمة على الموبايل بعد الضغط على رابط
+                if (window.innerWidth <= 768) {
+                    const sidebar = document.querySelector('.sidebar');
+                    const overlay = document.querySelector('.sidebar-overlay');
+                    const body = document.body;
+                    
+                    if (sidebar && overlay) {
+                        console.log('Closing sidebar after nav click');
+                        sidebar.classList.remove('open');
+                        overlay.classList.add('hidden');
+                        body.classList.remove('sidebar-open');
+                    }
+                }
+                
+                // الانتقال للصفحة
+                setTimeout(() => {
+                    navigateToPage(page);
+                }, 100);
+            });
+            
+            // إضافة touch events للموبايل
+            item.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                console.log('Nav item touch start:', this.getAttribute('data-page'));
+            });
+            
+            item.addEventListener('touchend', function(e) {
+                e.preventDefault();
+                const page = this.getAttribute('data-page');
+                console.log('Nav item touch end:', page);
+                
+                // إغلاق القائمة على الموبايل بعد اللمس
+                if (window.innerWidth <= 768) {
+                    const sidebar = document.querySelector('.sidebar');
+                    const overlay = document.querySelector('.sidebar-overlay');
+                    const body = document.body;
+                    
+                    if (sidebar && overlay) {
+                        console.log('Closing sidebar after nav touch');
+                        sidebar.classList.remove('open');
+                        overlay.classList.add('hidden');
+                        body.classList.remove('sidebar-open');
+                    }
+                }
+                
+                // الانتقال للصفحة
+                setTimeout(() => {
+                    navigateToPage(page);
+                }, 100);
+            });
+        });
+    });
+} catch (e) {
+    console.error('Error setting up navigation:', e);
+}
 

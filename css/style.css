@@ -271,6 +271,7 @@ body {
     text-decoration: none;
     transition: all 0.3s;
     border-right: 3px solid transparent;
+    cursor: pointer;
 }
 
 .nav-item:hover {
@@ -283,6 +284,27 @@ body {
     background-color: #2d3748;
     color: white;
     border-right-color: #4299e1;
+}
+
+.nav-item:focus {
+    outline: 2px solid #4299e1;
+    outline-offset: 2px;
+}
+
+/* تحسين للروابط على الموبايل */
+@media (max-width: 768px) {
+    .nav-item {
+        padding: 18px 20px;
+        font-size: 16px;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+    }
+    
+    .nav-item i {
+        font-size: 18px;
+        margin-left: 12px;
+    }
 }
 
 .card {
