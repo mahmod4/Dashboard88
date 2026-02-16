@@ -230,12 +230,21 @@ try {
     document.addEventListener('DOMContentLoaded', function() {
         console.log('DOM loaded, adding nav item listeners');
         
+        // إزالة event listeners القديمة أولاً
         const navItems = document.querySelectorAll('.nav-item');
         navItems.forEach(item => {
+            // استنساخ الأحداث القديمة
+            const newItem = item.cloneNode(true);
+            item.parentNode.replaceChild(newItem, item);
+        });
+        
+        // إضافة event listeners جديدة
+        const newNavItems = document.querySelectorAll('.nav-item');
+        newNavItems.forEach(item => {
             item.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                const page = this.getAttribute('data-page');
+                const page = this.getAttribute('onclick').match(/navigateToPage\('([^']+)'\)/)[1];
                 console.log('Nav item clicked:', page);
                 
                 // إغلاق القائمة على الموبايل بعد الضغط على رابط
@@ -261,12 +270,13 @@ try {
             // إضافة touch events للموبايل
             item.addEventListener('touchstart', function(e) {
                 e.preventDefault();
-                console.log('Nav item touch start:', this.getAttribute('data-page'));
+                const page = this.getAttribute('onclick').match(/navigateToPage\('([^']+)'\)/)[1];
+                console.log('Nav item touch start:', page);
             });
             
             item.addEventListener('touchend', function(e) {
                 e.preventDefault();
-                const page = this.getAttribute('data-page');
+                const page = this.getAttribute('onclick').match(/navigateToPage\('([^']+)'\)/)[1];
                 console.log('Nav item touch end:', page);
                 
                 // إغلاق القائمة على الموبايل بعد اللمس

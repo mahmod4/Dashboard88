@@ -272,6 +272,10 @@ body {
     transition: all 0.3s;
     border-right: 3px solid transparent;
     cursor: pointer;
+    position: relative;
+    z-index: 1002;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .nav-item:hover {
@@ -291,6 +295,11 @@ body {
     outline-offset: 2px;
 }
 
+.nav-item:active {
+    transform: scale(0.98);
+    background-color: #374151;
+}
+
 /* تحسين للروابط على الموبايل */
 @media (max-width: 768px) {
     .nav-item {
@@ -299,11 +308,40 @@ body {
         min-height: 44px;
         display: flex;
         align-items: center;
+        position: relative;
+        z-index: 1002;
     }
     
     .nav-item i {
         font-size: 18px;
         margin-left: 12px;
+        pointer-events: none;
+    }
+    
+    .nav-item:active {
+        background-color: #1f2937;
+        transform: scale(0.95);
+    }
+    
+    /* تحسين للروابط على الموبايل - إضافة مساحة أكبر للضغط */
+    .nav-item::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: transparent;
+        z-index: -1;
+    }
+    
+    /* منع التمرير عند لمس الروابط */
+    .sidebar {
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .sidebar nav {
+        -webkit-overflow-scrolling: touch;
     }
 }
 
@@ -626,6 +664,7 @@ body {
     top: 0;
     right: 0;
     box-sizing: border-box;
+    z-index: 1000;
 }
 
 .sidebar nav {
@@ -633,6 +672,7 @@ body {
     overflow-y: auto;
     overflow-x: hidden;
     padding-bottom: 10px;
+    z-index: 1001;
 }
 
 .sidebar::-webkit-scrollbar {
