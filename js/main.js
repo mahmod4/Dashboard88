@@ -162,19 +162,22 @@ function showDashboard() {
 
 // الانتقال إلى صفحة داخل اللوحة (وتغيير حالة Active + تحميل المحتوى)
 export function navigateToPage(page) {
+    console.log('Navigating to page:', page);
     currentPage = page;
     
     // تحديث العنصر النشط في القائمة الجانبية
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');
-        if (item.getAttribute('data-page') === page) {
+        // البحث عن العنصر الذي يحتوي على الصفحة المطلوبة
+        const onclickAttr = item.getAttribute('onclick');
+        if (onclickAttr && onclickAttr.includes(`navigateToPage('${page}')`)) {
             item.classList.add('active');
         }
     });
-
+    
     // تحديث عنوان الصفحة في الـ Header
     pageTitle.textContent = pageTitles[page] || page;
-
+    
     // عرض Loader ثم تحميل الصفحة المطلوبة
     pageContent.innerHTML = '<div class="loading"><div class="spinner"></div><p>جاري التحميل...</p></div>';
     
