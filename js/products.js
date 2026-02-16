@@ -417,6 +417,19 @@ async function loadCategoriesForSelect() {
             { id: 'dairy', name: 'منتجات الألبان' }
         ];
         
+        // ملء select للمنتج العادي
+        const select = document.getElementById('productCategory');
+        if (select) {
+            select.innerHTML = '<option value="">اختر القسم...</option>';
+            defaultCategories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat.id;
+                option.textContent = cat.name;
+                select.appendChild(option);
+            });
+        }
+        
+        // ملء select للتعديل الجماعي
         const bulkSelect = document.getElementById('bulkCategory');
         if (bulkSelect) {
             bulkSelect.innerHTML = '<option value="">لا تغيير</option>';
@@ -1065,7 +1078,7 @@ window.getSelectedProducts = function() {
 // ================================
 // التعديل الجماعي (Bulk Edit)
 // ================================
-window.openBulkEditModal = function() {
+window.openBulkEditModal = async function() {
     const selectedProducts = Array.from(document.querySelectorAll('.product-checkbox:checked'))
         .map(cb => cb.value);
     
@@ -1148,18 +1161,22 @@ window.openBulkEditModal = function() {
     document.body.appendChild(modal);
     modal.style.display = 'block';
     
-    // Load categories for select مع تأخير بسيط لضمان تحميل الـ DOM
-    setTimeout(async () => {
-        await loadCategoriesForSelect();
-    }, 100);
+    // Load categories for select
+    await loadCategoriesForSelect();
 }
 
 // إغلاق نافذة التعديل الجماعي
 window.closeBulkEditModal = function() {
-    const modal = document.querySelector('.modal');
-    if (modal) {
-        modal.remove();
-    }
+    // البحث عن جميع النوافذ المفتوحة وإغلاقها
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(modal => {
+        if (modal) {
+            modal.style.display = 'none';
+            setTimeout(() => {
+                modal.remove();
+            }, 50);
+        }
+    });
 }
 
 // فتح نافذة الحذف الجماعي
@@ -1227,10 +1244,16 @@ window.openBulkDeleteModal = function() {
 
 // إغلاق نافذة الحذف الجماعي
 window.closeBulkDeleteModal = function() {
-    const modal = document.querySelector('.modal');
-    if (modal) {
-        modal.remove();
-    }
+    // البحث عن جميع النوافذ المفتوحة وإغلاقها
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(modal => {
+        if (modal) {
+            modal.style.display = 'none';
+            setTimeout(() => {
+                modal.remove();
+            }, 50);
+        }
+    });
 }
 
 // تنفيذ الحذف الجماعي
@@ -1279,8 +1302,10 @@ window.performBulkDelete = async function() {
             }
         }
         
-        // إغلاق النافذة
-        closeBulkDeleteModal();
+        // إغلاق النافذة مع تأخير بسيط
+        setTimeout(() => {
+            closeBulkDeleteModal();
+        }, 100);
         
         // إعادة تحميل قائمة المنتجات
         loadProducts();
